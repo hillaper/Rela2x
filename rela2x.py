@@ -268,7 +268,7 @@ def matrix_nonzeros(matrix):
     """Nonzero elements of a matrix."""
     return matrix.applyfunc(lambda x: 1 if x != 0 else 0)
 
-def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None, fontsize=None):
+def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
     """
     Visualize a given operator.
 
@@ -285,9 +285,9 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     operator_nonzeros = np.array(matrix_nonzeros(operator), dtype=np.float32)
 
     if operator_nonzeros.shape[0] <= 16:
-        _, ax = plt.subplots(figsize=(6, 6), dpi=150)
+        _, ax = plt.subplots(figsize=(5, 5), dpi=125)
     else:
-        _, ax = plt.subplots(figsize=(8, 8), dpi=150)
+        _, ax = plt.subplots(figsize=(7, 7), dpi=125)
     ax.imshow(operator_nonzeros, cmap='Blues', alpha=0.9)
 
     # Shift the grid
@@ -928,7 +928,7 @@ class Operator:
         self.functions_in = self.get_functions()
     
     # Visualization
-    def visualize(self, rows_start=0, rows_end=None, basis_symbols=None, fontsize=None):
+    def visualize(self, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
         """
         Visualize the operator.
         
@@ -964,9 +964,25 @@ class Superoperator(Operator):
 ####################################################################################################
 # Spectral density functions and relaxation constants.
 ####################################################################################################
-def Lorentzian(w, tau_c):
-    """Lorentzian spectral density function (normalized to tau_c at w = 0)."""
-    return tau_c / (1 + (w * tau_c)**2)
+def Lorentzian(w, tau_c, fast_motion_limit=False, slow_motion_limit=False):
+    """
+    Lorentzian spectral density function (normalized to tau_c at w = 0).
+    
+    Input:
+        - w: Frequency.
+        - tau_c: Correlation time.
+        - fast_motion_limit: Whether to use the fast motion limit where (w * tau_c) << 1. Default is False.
+        - slow_motion_limit: Whether to use the slow motion limit where (w * tau_c) >> 1. Default is False.
+    """
+    if w == 0:
+        return tau_c
+    else:
+        if fast_motion_limit:
+            return tau_c
+        elif slow_motion_limit:
+            return 1 / (w**2 * tau_c)
+        else:
+            return tau_c / (1 + (w * tau_c)**2)
 
 def Schofield_theta(w):
     """Schofield thermal correction function f(w, T) in quantum mechanical spectral density function K(w) = J(w) * f(w, T).
@@ -1015,15 +1031,7 @@ def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument, tau_c,
     else:
         G = smp.Symbol(f'G^{{{intr_sorted[0]}, {intr_sorted[1]}}}_{{{l, 0}}}', real=True)
 
-    if fast_motion_limit:
-        J_w = 2*G * tau_c
-    elif slow_motion_limit:
-        if argument == 0:
-            J_w = 2*G * tau_c
-        else:
-            J_w = 0
-    else:
-        J_w = 2*G * Lorentzian(argument, tau_c)
+    J_w = 2*G * Lorentzian(argument, tau_c, fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
 
     if settings.RELAXATION_THEORY == 'sc':
         return J_w
@@ -1576,7 +1584,11 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
 
                                                             R_term = sop_R_term_delta_delta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
                                                                 spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
-                                                            R_final += R_term        
+                                                            R_final += R_term
+      
+            else:
+                raise ValueError('Invalid mechanism pair. Check the INCOHERENT_INTERACTIONS dictionary.')
+            
     print('\n All done!')                                 
     return R_final
 
