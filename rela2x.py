@@ -1,7 +1,7 @@
 """
 The main spin quantum mechanics module for the Rela2x package.
 
-Authors: 
+Author:
     Perttu Hilla.
     perttu.hilla@oulu.fi
 """
@@ -24,6 +24,7 @@ from sympy.physics.quantum.cg import CG
 
 # Rela2x specific
 import settings
+import nmr_isotopes
 from constants_and_variables import *
 
 ####################################################################################################
@@ -34,7 +35,8 @@ def set_relaxation_theory(theory):
     Set the level of theory for the relaxation superoperator.
     
     Input:
-        - theory: 'sc' for semiclassical, 'qm' for quantum mechanical.
+        - theory: 'sc' for semiclassical, 'qm' for quantum mechanical. 
+        NOTE: Default is semiclassical.
     """
     settings.RELAXATION_THEORY = theory
 
@@ -43,7 +45,8 @@ def set_frame(frame):
     Set the frame of reference.
     
     Input:
-        - frame: 'lab' for laboratory frame, 'rot' for rotating frame.
+        - frame: 'lab' for laboratory frame, 'rot' for rotating frame. 
+        NOTE: Default is rotating frame.
     """
     settings.FRAME = frame
 
@@ -52,7 +55,8 @@ def set_secular(Boolean):
     Set the secular approximation.
     
     Input:
-        - Boolean: True for secular approximation, False for no secular approximation.
+        - Boolean: True for secular approximation, False for no secular approximation. 
+        NOTE: Default is True.
     """
     settings.SECULAR = Boolean
 
@@ -66,6 +70,9 @@ def KroneckerProduct(*m):
 
     Input:
         - m: Matrices to be Kronecker producted.
+
+    Returns:
+        - result: Kronecker product of the matrices.
     """
     result = m[0]
     for i in range(1, len(m)):
@@ -73,13 +80,12 @@ def KroneckerProduct(*m):
                  lambda p, q: result[p//m[i].shape[0], q//m[i].shape[1]] * m[i][p%m[i].shape[0], q%m[i].shape[1]])
     return result
 
-# NOTE: ops refer to SymPy matrices.
+# NOTE: op in the following functions refers to SymPy matrices.
 def commutator(op1, op2):
     """Symbolic commutator of two operators."""
     return op1 * op2 - op2 * op1
 
 # Liouville bracket and norm
-# NOTE: In mathematical terms these are the Hilbert-Schmidt/Frobenius inner products.
 def Lv_bracket(op1, op2):
     """Symbolic Liouville bracket of two operators."""
     return smp.trace(op1.H * op2)
@@ -93,8 +99,11 @@ def op_change_of_basis(op, basis):
     Symbolic change of basis of an operator.
     
     Input:
-        - op: Operator to be changed.
-        - basis: Basis set (list of operators/matrix representations).
+        - op: Operator to be changed (matrix representation)
+        - basis: Basis set (list of matrix representations of the basis states/operators).
+
+    Returns:
+        - op_new: Operator in the new basis.
     """
     op_new = smp.zeros(op.shape[0], op.shape[1], complex=True)
     for i in range(op.shape[0]):
@@ -107,13 +116,30 @@ def op_change_of_basis(op, basis):
 # Miscellaneous tools.
 # NOTE: General tools defined here, more specific functionalities in classes.
 ####################################################################################################
-# Information extraction from spherical tensor operator symbols (the basis set that Rela2x mainly uses)
+# Information extraction from input of NMR isotopes
+def spin_quantum_numbers(isotopes):
+    """
+    Spin quantum numbers of nuclear isotopes.
+    
+    Input:
+        - isotopes: List of nuclear isotopes.
+
+    Returns:
+        - S: List of spin quantum numbers in the same order as the input isotopes.
+    """
+    return [nmr_isotopes.ISOTOPES[isotope][0] for isotope in isotopes]
+
+# Information extraction from spherical tensor operator symbols 
+# NOTE: This is the basis that Rela2x uses as a default.
 def T_symbol_spin_order(T_symbol):
     """
     Spin order of a spherical tensor operator symbol, i.e. the number of operators in the product.
     
     Input:
         - T_symbol: Spherical tensor operator symbol (SymPy symbol).
+
+    Returns:
+        - Spin order of the symbol.
     """
     return str(T_symbol).count('T')
 
@@ -123,6 +149,9 @@ def T_symbol_coherence_order(T_symbol):
     
     Input:
         - T_symbol: Spherical tensor operator symbol (SymPy symbol).
+
+    Returns:
+        - Coherence order of the symbol.
     """
     s = str(T_symbol)
     numbers = re.findall(r'(\-?\d)}\^\{\(\d+\)\}', s)
@@ -131,13 +160,16 @@ def T_symbol_coherence_order(T_symbol):
 def T_symbol_type(T_symbol):
     """
     Type (population or coherence) of a spherical tensor operator symbol.
-    NOTE: Explicitly written and kind of hard-coded.
+    NOTE: Kind of hard-coded, but works for the current purposes.
     
     Input:
         - T_symbol: Spherical tensor operator symbol (SymPy symbol).
+
+    Returns:
+        - Type of the symbol, 0 for population, 1 for coherence.
     """
     s = str(T_symbol)
-     # Up to rank 6 should be enough for the current purposes
+    # Up to rank 6 should be enough for the current purposes
     numbers = ['11', '1-1',
                '22', '21', '2-1', '2-2',
                '33', '32', '31', '3-1', '3-2', '3-3',
@@ -151,10 +183,13 @@ def T_symbol_type(T_symbol):
 def T_symbol_Nth_spin_projection(T_symbol, N):
     """
     Nth spin projection of a spherical tensor operator symbol (q-value).
-    NOTE: N starts from 1.
+    NOTE: N starts from 1 as opposed to 0 in Python.
     
     Input:
         - T_symbol: Spherical tensor operator symbol (SymPy symbol).
+
+    Returns:
+        - Nth spin projection of the symbol if found, 0 otherwise.
     """
     s = str(T_symbol)
     pattern = r'\\hat\{T\}\_{([^}]*)}\^\{\('+str(N)+'\)\}'
@@ -164,7 +199,33 @@ def T_symbol_Nth_spin_projection(T_symbol, N):
     else:
         return 0
 
-# Relaxation theory
+def find_T_symbol_index(T_symbols, spin_index_lqs):
+    """
+    Find the list index of a symbol with given spin indexes, ls and qs from a list of spherical tensor operator symbols.
+    
+    Input:
+        - T_symbols: List of spherical tensor operator symbols
+        - spin_index_lqs: String of the form '210' for spin 2, l = 1, q = 0, or '110*210' for a product of two operators, etc.
+        NOTE: The order of the spin indexes and lqs is important for the function to work.
+
+    Returns:
+        - Index of the symbol that matches with the given spin indexes and lqs. None if no match is found.
+    """
+    spin_index_lqs = spin_index_lqs.split('*')
+    spin_index_lqs = [(int(spin_index_lq[0]), int(spin_index_lq[1]), int(spin_index_lq[2:])) for spin_index_lq in spin_index_lqs]
+
+    for i, symbol in enumerate(T_symbols):
+        pattern = ''
+        for spin_index, l, q in spin_index_lqs:
+            pattern += f'\\hat{{T}}_{{{l}{q}}}^{{({spin_index})}}'
+            pattern += '*'
+        pattern = pattern[:-1]
+
+        if pattern == str(symbol):
+            return i
+    return None
+
+# Convenience function
 def sort_interactions(intr1, intr2):
     """Sort an interaction pair. Used for cosmetic purposes."""
     def string_to_number(string):
@@ -173,10 +234,10 @@ def sort_interactions(intr1, intr2):
     if str(intr1) == str(intr2):
         return str(intr1)
     else:
-        # Hash the strings and return the sorted pair, see tools.string_to_number for details.
+        # Hash the strings and return the sorted pair
         return sorted([str(intr1), str(intr2)], key=string_to_number)
 
-# Basis set filtering
+# List and matrix operations
 def pick_from_list(lst, kept_indices):
     """Select elements from a list."""
     return [lst[i] for i in kept_indices]
@@ -199,14 +260,23 @@ def cut_matrix(matrix, removed_indices):
         matrix.col_del(index)
     return matrix
 
+# Basis set filters
 def coherence_order_filter(operator, basis_states, basis_state_symbols, allowed_coherences):
     """
     Filter an operator, basis states and basis state symbols based on allowed coherences.
+
     Input:
-        - operator: Operator to be filtered.
+        - operator: Operator (matrix representation) to be filtered.
         - basis_states: List of basis states.
         - basis_state_symbols: List of basis state symbols.
         - allowed_coherences: List of allowed coherences.
+
+    Returns:
+        - operator: Filtered operator.
+        - basis_states: Filtered basis states.
+        - basis_state_symbols: Filtered basis state symbols.
+
+    NOTE: Functions below have the same structure.
     """
     basis_coherences = [T_symbol_coherence_order(T_symbol) for T_symbol in basis_state_symbols]
     indexes_to_delete = [i for i, coherence in enumerate(basis_coherences) if coherence not in allowed_coherences]
@@ -216,10 +286,8 @@ def coherence_order_filter(operator, basis_states, basis_state_symbols, allowed_
 def spin_order_filter(operator, basis_states, basis_state_symbols, allowed_spin_orders):
     """
     Filter an operator, basis states and basis state symbols based on allowed spin orders.
+
     Input:
-        - operator: Operator to be filtered.
-        - basis_states: List of basis states.
-        - basis_state_symbols: List of basis state symbols.
         - allowed_spin_orders: List of allowed spin orders.
     """
     basis_spin_orders = [T_symbol_spin_order(T_symbol) for T_symbol in basis_state_symbols]
@@ -230,10 +298,8 @@ def spin_order_filter(operator, basis_states, basis_state_symbols, allowed_spin_
 def type_filter(operator, basis_states, basis_state_symbols, allowed_type):
     """
     Filter an operator, basis states and basis state symbols based on allowed type.
+
     Input:
-        - operator: Operator to be filtered.
-        - basis_states: List of basis states.
-        - basis_state_symbols: List of basis state symbols.
         - allowed_type: Allowed type, 0 for population, 1 for coherence.
     """
     basis_types = [T_symbol_type(T_symbol) for T_symbol in basis_state_symbols]
@@ -247,10 +313,10 @@ def list_indexes(lst):
     return list(range(len(lst)))
 
 def all_combinations(N, *args, reverse=False):
-    """Generate all combinations of N lists."""
+    """Generate all combinations of N lists. Used for spherical tensor operator product basis generation."""
     list_combinations = list(itertools.combinations(args, N))
 
-    # For each combination of lists, generate all combinations of one element from each list
+    # For each combination of lists, generate all combinations with one element from each list
     all_combinations = []
     for lists in list_combinations:
         all_combinations.extend(itertools.product(*lists))
@@ -270,7 +336,8 @@ def matrix_nonzeros(matrix):
 
 def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
     """
-    Visualize a given operator.
+    Visualize a given operator (its matrix representation).
+    Plot is shown automatically.
 
     Input:
         - operator: Operator to be visualized.
@@ -285,15 +352,16 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     operator_nonzeros = np.array(matrix_nonzeros(operator), dtype=np.float32)
 
     if operator_nonzeros.shape[0] <= 16:
-        _, ax = plt.subplots(figsize=(5, 5), dpi=125)
+        _, ax = plt.subplots(figsize=(4, 4), dpi=150)
     else:
-        _, ax = plt.subplots(figsize=(7, 7), dpi=125)
+        _, ax = plt.subplots(figsize=(6, 6), dpi=150)
     ax.imshow(operator_nonzeros, cmap='Blues', alpha=0.9)
 
     # Shift the grid
     ax.set_xticks(np.arange(-.5, operator_nonzeros.shape[1], 1), minor=True)
     ax.set_yticks(np.arange(-.5, operator_nonzeros.shape[0], 1), minor=True)
-    ax.grid(which='minor', color='gray', linestyle='-', linewidth=1.2)
+    if operator_nonzeros.shape[0] <= 64:
+        ax.grid(which='minor', color='gray', linestyle='-', linewidth=1)
 
     # Move x-axis ticks to the top
     ax.xaxis.tick_top()
@@ -304,23 +372,30 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
         ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
         ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
         ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1))
-    else:
+    elif operator_nonzeros.shape[0] <= 64:
         ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 2))
         ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 2))
         ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1, 2))
         ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 2))
+    else:
+        ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 4))
+        ax.set_xticklabels([])
+        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 4))
+
+    # Apply font size to ticks
+    if operator_nonzeros.shape[0] <= 16:
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+    elif operator_nonzeros.shape[0] <= 64:
+        ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
+    else:
+        ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
 
     # Show the basis symbols if given
     if basis_symbols is not None:
         basis_symbols = basis_symbols[rows_start:rows_end]
         basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
-
         legend_text = '\n'.join(f'({i+1}): {label}' for i, label in enumerate(basis_symbols))
-
-        if fontsize is None:
-            ax.text(1.05, 0.5, legend_text, transform=ax.transAxes, verticalalignment='center')
-        else:
-            ax.text(1.05, 0.5, legend_text, transform=ax.transAxes, verticalalignment='center', fontsize=fontsize)
+        ax.text(1.05, 0.5, legend_text, transform=ax.transAxes, verticalalignment='center', fontsize=fontsize)
 
     plt.tight_layout()
     plt.show()
@@ -336,6 +411,9 @@ def op_S_symbol(direction, index):
     Input:
         - direction: Direction of the spin operator ('x', 'y', 'z', etc.).
         - index: Spin index.
+
+    Returns:
+        - Spin-operator symbol.
     """
     return smpq.Operator(f'\\hat{{S}}_{direction}^{{({index})}}')
 
@@ -345,7 +423,10 @@ def product_op_S_symbol(directions, indices):
     
     Input:
         - directions: List of directions of the spin operators.
-        - indices: List of indices of the spin operators.
+        - indices: List of spin indices.
+
+    Returns:
+        - Product-operator symbol.
     """
     product_op_S = 1
     for direction, index in zip(directions, indices):
@@ -360,7 +441,10 @@ def op_T_symbol(l, q, index):
     Input:
         - l: Rank of the spherical tensor operator.
         - q: Projection of the spherical tensor operator.
-        - index: Index of the spherical tensor operator.
+        - index: Spin index.
+
+    Returns:
+        - Spherical tensor operator symbol.
     """
     return smpq.Operator(f'\\hat{{T}}_{{{l}{q}}}^{{({index})}}')
 
@@ -371,7 +455,10 @@ def product_op_T_symbol(ls, qs, indices):
     Input:
         - ls: List of ranks of the spherical tensor operators.
         - qs: List of projections of the spherical tensor operators.
-        - indices: List of indices of the spherical tensor operators.
+        - indices: List of spin indices.
+
+    Returns:
+        - Product-operator symbol.
     """
     product_op_T = 1
     for l, q, index in zip(ls, qs, indices):
@@ -391,7 +478,7 @@ def f_expectation_value_t(op_symbol):
 ####################################################################################################
 # Matrix representations:
 def op_Sx(S):
-    """Spin angular momentum operator of quantum number S in x-direction."""
+    """Spin angular momentum operator for quantum number S in the x-direction."""
     m = np.arange(-S, S+1)
     Sx = smp.zeros(len(m), len(m), complex=True)
 
@@ -405,7 +492,7 @@ def op_Sx(S):
     return smp.Matrix(Sx.T, complex=True).applyfunc(smp.nsimplify)
 
 def op_Sy(S):
-    """Spin angular momentum operator of quantum number S in y-direction."""
+    """Spin angular momentum operator for quantum number S in the y-direction."""
     m = np.arange(-S, S+1)
     Sy = smp.zeros(len(m), len(m), complex=True)
 
@@ -419,7 +506,7 @@ def op_Sy(S):
     return smp.Matrix(Sy.T, complex=True).applyfunc(smp.nsimplify)
 
 def op_Sz(S):
-    """Spin angular momentum operator of quantum number S in z-direction."""
+    """Spin angular momentum operator for quantum number S in the z-direction."""
     m = np.arange(-S, S+1)
     m = np.flip(m)
 
@@ -430,20 +517,20 @@ def op_Sz(S):
     return smp.Matrix(Sz.T, complex=True).applyfunc(smp.nsimplify)
 
 def op_Sp(S):
-    """Spin angular momentum raising operator of quantum number S."""
+    """Spin angular momentum raising operator for quantum number S."""
     return op_Sx(S) + smp.I * op_Sy(S)
 
 def op_Sm(S):
-    """Spin angular momentum lowering operator of quantum number S."""
+    """Spin angular momentum lowering operator for quantum number S."""
     return op_Sx(S) - smp.I * op_Sy(S)
 
 def op_Svec(S):
-    """Spin angular momentum vector operator of quantum number S."""
+    """Cartesian spin angular momentum vector operator for quantum number S."""
     return [op_Sx(S), op_Sy(S), op_Sz(S)]
 
 ####################################################################################################
 # Spherical tensors and spherical tensor operators.
-# NOTE: These functions use dictionaries with keys (l, q) for spherical tensor components.
+# NOTE: These functions use dictionaries of the form {(l, q): T_lq} for spherical tensors.
 ####################################################################################################
 # Classical spherical tensors:
 def vector_to_spherical_tensor(vector):
@@ -452,6 +539,9 @@ def vector_to_spherical_tensor(vector):
 
     Input:
         - vector: Vector in the form [x, y, z].
+
+    Returns:
+        - dictionary of the form {(l, q): T_lq}.
     """
     T_m1 = (vector[0] - smp.I * vector[1]) / smp.sqrt(2)
     T_0 = vector[2]
@@ -484,17 +574,15 @@ def op_T(S, l, q):
             q += 1
         return T_ll.applyfunc(smp.simplify)
 
-# Coupling of spherical tensor operators
+# Coupling of spherical tensor operators.
+# NOTE: Used for rank 2 contributions in the relaxation superoperator.
 def op_T_coupled_lq(T1_dict, T2_dict, l, q):
     """
-    Coupled spherical tensor operator of rank l and projection q from two spherical tensor operators of rank 1.
-
-    NOTE: Some ambiguity with the normalization of the scalar product (0,0) term. This is without the -sqrt(3) factor,
-    which is sometimes used in the literature.
+    Coupled spherical tensor operator of rank l and projection q from two spherical tensors of rank 1.
 
     Input:
-        - T1_dict: Dictionary of spherical tensor components for the first spin.
-        - T2_dict: Dictionary of spherical tensor components for the second spin.
+        - T1_dict: First dictionary of spherical tensor components.
+        - T2_dict: Second dictionary of spherical tensor components.
         - l: Rank of the spherical tensor operator.
         - q: Projection of the spherical tensor operator.
     """
@@ -534,7 +622,6 @@ def sop_double_commutator(op1, op2):
     """Double commutator superoperator."""
     return sop_commutator(op1) @ sop_commutator(op2)
 
-# Dissipation superoperators (Lindbladian formalism):
 def sop_D(op1, op2):
     """Lindbladian dissipation superoperator."""
     return sop_lmul(op1) @ sop_rmul(op2)\
@@ -550,7 +637,10 @@ def many_spin_operator(S, single_spin_operator, spin_index):
     Input:
         - S: List of spin quantum numbers of the spins.
         - single_spin_operator: Single-spin operator.
-        - spin_index: Index of the spin.
+        - spin_index: Index of the desired spin.
+
+    Returns:
+        - The many-spin system version of the single-spin operator.
     """
     op = smp.eye(1)
     for i in range(len(S)):
@@ -563,10 +653,10 @@ def many_spin_operator(S, single_spin_operator, spin_index):
 class SpinOperators:
     """
     General class for the spin operators of a spin system.
-    NOTE: One of the main classes used in the Rela2x package.
+    NOTE: One of the main classes used in Rela2x.
     
     Input:
-        - S: List of spin quantum numbers of the spins.
+        - spinsystem: List of nuclear isotopes (strings) that define the spin system.
         - Cartesian_operators: Whether to generate the Cartesian spin operators (default = True)
         - spherical_tensors: Whether to generate the spherical tensor operators (default = True)
         
@@ -583,13 +673,17 @@ class SpinOperators:
             - T: Spherical tensor operators for each spin.
             - T_symbol: Spherical tensor operator symbols for each spin.
     """
-    def __init__(self, S, 
+    def __init__(self, spinsystem,
                  Cartesian_operators=True,
                  spherical_tensors=True):
-        self.S = S
+        # Check that the input is a list of strings
+        if not all(isinstance(isotope, str) for isotope in spinsystem):
+            raise ValueError("The spinsystem has to be a list of strings, such as ['1H', '14N']")
+                
+        self.spinsystem = spinsystem
+        self.S = spin_quantum_numbers(spinsystem)
 
-        # Automatically generated attributes
-        self.N_spins = len(S)
+        self.N_spins = len(self.S)
         self.gen_N_states()
 
         if Cartesian_operators:
@@ -600,7 +694,6 @@ class SpinOperators:
             self.gen_many_spin_T_operators()
             self.gen_T_operator_symbols()
 
-    # Functions called in __init__:
     def gen_N_states(self):
         """Generate the number of states in the spin system."""
         self.N_states = 1
@@ -610,9 +703,12 @@ class SpinOperators:
     # Cartesian spin operators
     def gen_many_spin_operators(self):
         """Generate the many-spin operators"""
+
         def gen_spin_operators():
-            """Single-spin operators for each spin if they were in a single-spin system
-            (overwritten below for many-spin operators)."""
+            """
+            Single-spin operators for each spin if they were in a single-spin system
+            (overwritten below for many-spin operators).
+            """
             self.Sx = [op_Sx(S) for S in self.S]
             self.Sy = [op_Sy(S) for S in self.S]
             self.Sz = [op_Sz(S) for S in self.S]
@@ -641,6 +737,7 @@ class SpinOperators:
     # Spherical tensor operators
     def gen_many_spin_T_operators(self):
         """Generate the many-spin spherical tensor operators."""
+
         def gen_T_operators(S):
             """Single-spin spherical tensor operators for quantum number S."""
             return {(l, q): op_T(S, l, q) for l in range(int(2*S)+1) for q in range(-l, l+1)}
@@ -660,24 +757,29 @@ class SpinOperators:
 # Product basis of spherical tensor operators
 def T_product_basis(SpinOperators, normalize=True):
     """
-    Generate the product basis of spherical tensor operators.
-    Each T operator of each spin is multiplied with the T operators of the other spins.
+    Generate the direct product basis of spherical tensor operators.
+    Each T_lq operator of each spin is multiplied with the T_lq operators of the other spins.
 
     NOTE: SpinOperators object has to have been called with spherical_tensors = True.
 
     Input:
         - SpinOperators: SpinOperators object.
         - normalize: Whether to normalize the basis (default = True).
+
+    Returns:
+        - T_product_basis: list of product basis operators.
     """
     S = SpinOperators.S
     N_spins = SpinOperators.N_spins
     T = SpinOperators.T
 
+    # Combinatorics...
     ops = [[T[i][(l, q)] for l in range(int(2*S[i])+1) for q in range(-l, l+1)] for i in range(N_spins)]
     op_indexes = [list_indexes(ops[i]) for i in range(N_spins)]
     op_indexes = all_combinations(N_spins, *op_indexes, reverse=True)
     spin_indexes = [tuple(range(N_spins)) for _ in range(len(op_indexes))]
 
+    # Generate the product basis
     T_product_basis = []
     for spin_index_tuple, op_index_tuple in zip(spin_indexes, op_indexes):
         T_product = 1
@@ -695,23 +797,28 @@ def T_product_basis(SpinOperators, normalize=True):
 
 def T_product_basis_symbols(SpinOperators):
     """
-    Generate the product basis symbols of spherical tensor operators.
-    Each T operator of each spin is multiplied with the T operators of the other spins.
+    Generate the direct product basis symbols of spherical tensor operators.
+    Each T_lq symbol of each spin is multiplied with the T_lq symbols of the other spins.
 
     NOTE: SpinOperators object has to have been called with spherical_tensors = True.
 
     Input:
         - SpinOperators: SpinOperators object.
+
+    Returns:
+        - T_product_basis_symbols: list of product basis symbols.
     """
     S = SpinOperators.S
     N_spins = SpinOperators.N_spins
     T_symbol = SpinOperators.T_symbol
 
+    # Combinatorics...
     symbols = [[T_symbol[i][(l, q)] for l in range(int(2*S[i])+1) for q in range(-l, l+1)] for i in range(N_spins)]
     symbol_indexes = [list_indexes(symbols[i]) for i in range(N_spins)]
     symbol_indexes = all_combinations(N_spins, *symbol_indexes, reverse=True)
     spin_indexes = [tuple(range(N_spins)) for i in range(len(symbol_indexes))]
 
+    # Generate the product basis symbols
     T_product_basis_symbols = []
     for spin_index_tuple, symbol_index_tuple in zip(spin_indexes, symbol_indexes):
         T_product_symbol = 1
@@ -736,10 +843,15 @@ def T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols):
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+
+    Returns:
+        - T_basis_groups: Dictionary of groups of same coherence order (key = coherence order, value = list of matrices)
+        - T_symbol_groups: Dictionary of groups of same coherence order (key = coherence order, value = list of symbols)
     """
     coherence_orders = [T_symbol_coherence_order(T_symbol) for T_symbol in T_product_basis_symbols]
     T_basis_groups = {}
     T_symbol_groups = {}
+
     for i, coherence_order in enumerate(coherence_orders):
         if coherence_order in T_basis_groups:
             T_basis_groups[coherence_order].append(T_product_basis[i])
@@ -747,6 +859,7 @@ def T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols):
         else:
             T_basis_groups[coherence_order] = [T_product_basis[i]]
             T_symbol_groups[coherence_order] = [T_product_basis_symbols[i]]
+
     return T_basis_groups, T_symbol_groups
 
 def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
@@ -756,6 +869,11 @@ def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+
+    Returns:
+        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols)
+
+    NOTE: Functions below have the same structure.
     """
     spin_orders = [T_symbol_spin_order(op) for op in T_product_basis_symbols]
     sorting = np.argsort(spin_orders)
@@ -764,10 +882,6 @@ def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
 def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
     """
     Sort the product basis of spherical tensor operators by coherence order.
-        
-    Input:
-        - T_product_basis: Basis of spherical tensor operators (list of matrices)
-        - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
     """
     coherence_orders = [T_symbol_coherence_order(op) for op in T_product_basis_symbols]
     sorting = np.lexsort((coherence_orders, np.abs(coherence_orders)))
@@ -776,10 +890,6 @@ def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbol
 def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
     """
     Sort the product basis of spherical tensor operators by type.
-        
-    Input:
-        - T_product_basis: Basis of spherical tensor operators (list of matrices)
-        - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
     """
     types = [T_symbol_type(op) for op in T_product_basis_symbols]
     sorting = np.argsort(types)
@@ -787,12 +897,16 @@ def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
 
 def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, spin_index):
     """
-    Sort the product basis of spherical tensor operators by projection.
+    Sort the product basis of spherical tensor operators by projection (q) of the operator
+    acting on the specified spin.
         
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
         - spin_index: Spin index for the projection sorting.
+
+    Returns:
+        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols)
     """
     T_product_basis_NEW = []
     T_product_basis_symbols_NEW = []
@@ -810,44 +924,45 @@ def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, sp
 
 def identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
     """
-    Sort the product basis of spherical tensor operators by moving the identity operator first.
-    
-    Input:
-        - T_product_basis: Basis of spherical tensor operators (list of matrices)
-        - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+    Move the identity operator to the first position in the product basis.
     """
     identity_index = [i for i, T_symbol in enumerate(T_product_basis_symbols) if '{E}' in str(T_symbol)][0]
     T_product_basis_NEW = [T_product_basis[identity_index]] + T_product_basis[:identity_index] + T_product_basis[identity_index+1:]
     T_product_basis_symbols_NEW = [T_product_basis_symbols[identity_index]] + T_product_basis_symbols[:identity_index] + T_product_basis_symbols[identity_index+1:]
     return T_product_basis_NEW, T_product_basis_symbols_NEW
 
-# Quick sorting that combines all the above
+# Quick sorting that combines the functions above.
 # NOTE: Two versions are available
-def quick_sort_T_product_basis(T_product_basis, T_product_basis_symbols, sorting='v1'):
+def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, sorting='v1'):
     """
-    Quickly sort the product basis of spherical tensor operators.
-    
-    Version 1 sorts by type, spin order and coherence order.
-    Version 2 sorts by projection of each spin, coherence order and identity operator first.
+    Fully sort the product basis of spherical tensor operators.
+
+    Version 1 sorts by type --> spin order --> coherence order.
+    Version 2 sorts by projection of each spin --> coherence order --> identity operator first.
 
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
         - sorting: Sorting version ('v1' or 'v2').
+
+    Returns:
+        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols)
     """
     if sorting == 'v1':
         T_product_basis, T_product_basis_symbols = type_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
         T_product_basis, T_product_basis_symbols = spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
         T_product_basis, T_product_basis_symbols = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
+
     elif sorting == 'v2':
         # Loop over all spins and sort by projection
-        for i in range(1, 10): # NOTE: This will always suffice for up to 10 spins
+        for i in range(1, 5): # NOTE: This will always suffice for up to 5 spins
             T_product_basis, T_product_basis_symbols = projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, i)
         T_product_basis, T_product_basis_symbols = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
         T_product_basis, T_product_basis_symbols = identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
+
     return T_product_basis, T_product_basis_symbols
 
-def T_product_basis_and_symbols(SpinOperators, normalize=True, sorting=None):
+def T_product_basis_and_symbols(SpinOperators, normalize=True, sorting='v1'):
     """
     Generate and sort the product basis of spherical tensor operators.
     
@@ -855,13 +970,17 @@ def T_product_basis_and_symbols(SpinOperators, normalize=True, sorting=None):
         - SpinOperators: SpinOperators object.
         - normalize: Normalize the basis (default = True).
         - sorting: Sorting version (None, 'v1' or 'v2').
+
+    Returns:
+        - T_product_basis: Sorted basis of spherical tensor operators (list of matrices)
+        - T_product_basis_symbols: Sorted basis of spherical tensor operator symbols (list of SymPy symbols)
     """
     basis = T_product_basis(SpinOperators, normalize=normalize)
     symbols = T_product_basis_symbols(SpinOperators)
     if sorting == None:
         return basis, symbols
     else:
-        return quick_sort_T_product_basis(basis, symbols, sorting=sorting)
+        return full_sort_T_product_basis(basis, symbols, sorting=sorting)
     
 ####################################################################################################
 # General operator classes.
@@ -880,25 +999,21 @@ class Operator:
         
     Functions:
         - to_basis: Converts the operator to a different basis.
-
         - get_symbols: Get the symbols in the operator.
         - get_functions: Get the functions in the operator.
         - substitute: Substitute symbols and functions in the operator with numerical values.
-
         - visualize: Visualize the operator.
     """
 
     def __init__(self, op):
         self.op = op
-
-        # Automatically generated attributes
         self.symbols_in = self.get_symbols()
         self.functions_in = self.get_functions()
 
     # Matrix algebra
     def to_basis(self, basis):
         """
-        Converts the operator to a different basis.
+        Converts self.op to a different basis.
         
         Input:
             - basis: List of new basis operators.
@@ -907,16 +1022,26 @@ class Operator:
 
     # Symbols, functions and substitutions
     def get_symbols(self):
-        """Get the symbols in the operator."""
+        """
+        Get the symbols in self.op.
+        
+        Returns:
+            - List of symbols in the operator.
+        """
         return sorted(list(self.op.free_symbols), key=lambda x: str(x))
     
     def get_functions(self):
-        """Get the functions in the operator."""
+        """
+        Get the functions in self.op.
+        
+        Returns:
+            - List of functions in the operator.
+        """
         return sorted(list(self.op.atoms(smp.Function)), key=lambda x: str(x))
     
     def substitute(self, substitutions_dict):
         """
-        Substitute symbols and functions in the operator with numerical values.
+        Substitute symbols and functions in self.op with numerical values.
         
         Input:
             - substitutions_dict: Dictionary of substitutions of the form {symbol_str: value}.
@@ -930,7 +1055,8 @@ class Operator:
     # Visualization
     def visualize(self, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
         """
-        Visualize the operator.
+        Visualize self.op.
+        See visualize_operator function for more information.
         
         Input:
             - rows_start: Starting row index for the visualization.
@@ -942,8 +1068,7 @@ class Operator:
 
 class Superoperator(Operator):
     """
-    General class for superoperators. 
-    Inherits from Operator.
+    General class for superoperators. Inherits from Operator.
 
     See Operator class for more information.
     """
@@ -953,27 +1078,33 @@ class Superoperator(Operator):
     # Change of basis for superoperators
     def to_basis(self, basis):
         """
-        Converts the superoperator to a different basis.
+        Convert self.op to a different basis.
         
         Input:
             - basis: List of new basis operators.
         """
         basis_vectorized = vectorize_all(basis)
+        print('\nChanging basis...')
         self.op = op_change_of_basis(self.op, basis_vectorized)
+        print('\nBasis changed.')
 
 ####################################################################################################
 # Spectral density functions and relaxation constants.
 ####################################################################################################
 def Lorentzian(w, tau_c, fast_motion_limit=False, slow_motion_limit=False):
     """
-    Lorentzian spectral density function (normalized to tau_c at w = 0).
+    Lorentzian function (normalized to tau_c at w = 0). Used for spectral density functions.
     
     Input:
         - w: Frequency.
         - tau_c: Correlation time.
         - fast_motion_limit: Whether to use the fast motion limit where (w * tau_c) << 1. Default is False.
         - slow_motion_limit: Whether to use the slow motion limit where (w * tau_c) >> 1. Default is False.
+
+    Returns:
+        - J(w) = tau_c / (1 + (w * tau_c)^2).
     """
+    # This is to handle division by zero
     if w == 0:
         return tau_c
     else:
@@ -985,8 +1116,10 @@ def Lorentzian(w, tau_c, fast_motion_limit=False, slow_motion_limit=False):
             return tau_c / (1 + (w * tau_c)**2)
 
 def Schofield_theta(w):
-    """Schofield thermal correction function f(w, T) in quantum mechanical spectral density function K(w) = J(w) * f(w, T).
-    NOTE: beta defined in constants_and_variables.py."""
+    """
+    Schofield thermal correction exp(-1/2 * beta * w) in quantum mechanical spectral density function.
+    NOTE: beta = hbar / (k_B * T), defined in constants_and_variables.py.
+    """
     return smp.exp(-smp.Rational(1, 2) * beta * w)
         
 def J_w(intr1, intr2, l, argument):
@@ -996,11 +1129,16 @@ def J_w(intr1, intr2, l, argument):
     Input:
         - intr1: String for the first interaction.
         - intr2: String for the second interaction.
-        - l: Rank of the spherical tensor operator.
+        - l: Rank of the spherical tensor operator (q = 0 because of Hubbard's result)
         - argument: Argument of the spectral density function (combination of angular frequencies).
+
+    Returns:
+        - J(w) or J(w)*e^(-1/2 * beta * w), depending on the relaxation theory.
     """
     intr_sorted = sort_interactions(intr1, intr2)
-    if isinstance(intr_sorted, str): # NOTE: See sort_interactions
+
+    # If same interaction twice, use it only once in the superscript
+    if isinstance(intr_sorted, str):
         expr = smp.Function(f'J^{{{intr_sorted}}}_{{{l, 0}}}')(smp.Abs(argument))
     else:
         expr = smp.Function(f'J^{{{intr_sorted[0]}, {intr_sorted[1]}}}_{{{l, 0}}}')(smp.Abs(argument))
@@ -1008,10 +1146,9 @@ def J_w(intr1, intr2, l, argument):
     if settings.RELAXATION_THEORY == 'sc':
         return expr
     elif settings.RELAXATION_THEORY == 'qm':
-        f_theta = Schofield_theta(argument)
-        return expr * f_theta
+        return expr * Schofield_theta(argument)
     
-def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument, tau_c,
+def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
                                        fast_motion_limit=False, slow_motion_limit=False):
     """
     Isotropic rotational diffusion spectral density function, which is a Lorentzian function.
@@ -1021,32 +1158,39 @@ def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument, tau_c,
         - intr2: String for the second interaction.
         - l: Rank of the spherical tensor operator.
         - argument: Argument of the spectral density function (combination of angular frequencies).
-        - tau_c: Correlation time of the isotropic rotational diffusion.
         - fast_motion_limit: Whether to use the fast motion limit where (w * tau_c) << 1. Default is False.
         - slow_motion_limit: Whether to use the slow motion limit where (w * tau_c) >> 1. Default is False.
+
+    Returns:
+        - J(w) in the isotropic rotational diffusion model.
     """
     intr_sorted = sort_interactions(intr1, intr2)
-    if isinstance(intr_sorted, str): # NOTE: See sort_interactions
-        G = smp.Symbol(f'G^{{{intr_sorted}}}_{{{l, 0}}}', real=True)
+
+    if isinstance(intr_sorted, str):
+        G = smp.Function(f'G^{{{intr_sorted}}}_{{{l, 0}}}')(0)
     else:
-        G = smp.Symbol(f'G^{{{intr_sorted[0]}, {intr_sorted[1]}}}_{{{l, 0}}}', real=True)
+        G = smp.Function(f'G^{{{intr_sorted[0]}, {intr_sorted[1]}}}_{{{l, 0}}}')(0)
 
     J_w = 2*G * Lorentzian(argument, tau_c, fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
 
     if settings.RELAXATION_THEORY == 'sc':
         return J_w
     elif settings.RELAXATION_THEORY == 'qm':
-        f_theta = Schofield_theta(argument)
-        return J_w * f_theta
+        return J_w * Schofield_theta(argument)
     
 # Helper functions for RelaxationSuperoperator object
 def extract_J_w_symbols_and_args(J):
     """
-    Extract the symbols and arguments of the spectral density function J_w.
-    Used for substitution of symbols and functions in the spectral density function.
+    Extract the symbols and arguments in the spectral density function J(w).
+    Used for substitution of symbols and functions in the relaxation superoperator.
 
     Input:
         - J: Spectral density function symbol.
+
+    Returns:
+        - intrs: Interaction names.
+        - lq: Rank and projection of the spherical tensor operator.
+        - arg: Argument of the spectral density function.
     """
     J_str = str(J.func)
 
@@ -1060,18 +1204,21 @@ def extract_J_w_symbols_and_args(J):
     return intrs, lq, arg
     
 ####################################################################################################
-# Relaxation superoperators, high-field liquid-state NMR.
+# Relaxation superoperators.
 # NOTE: sigma is single-spin interaction and delta is double-spin interaction.
 ####################################################################################################
 def sop_R_term(op_T_left, J_w, op_T_right):
     """
-    Term in the relaxation superoperator.
+    Terms appearing in the sum for the relaxation superoperator: T * J(w) * T^dagger.
     NOTE: The left and right "order" of the operators is just for bookkeeping purposes.
 
     Input:
         - op_T_left: Left spherical tensor operator.
         - J_w: Spectral density function.
         - op_T_right: Right spherical tensor operator.
+
+    Returns:
+        - Term in the relaxation superoperator.
     """
     if settings.RELAXATION_THEORY == 'sc':
         return smp.Rational(1, 2) * J_w * sop_double_commutator(op_T_left, op_T_right.H)
@@ -1092,6 +1239,11 @@ def sop_R_term_sigma_sigma_LAB(l, q, sigma1, sigma2, sigma2_spin_name,
         - sigma2_spin_name: Name of the second spin associated with the second single-spin interaction.
         - op_T_left: Left spherical tensor operator.
         - op_T_right: Right spherical tensor operator.
+
+    Returns:
+        - Term in the relaxation superoperator.
+
+    NOTE: Functions below have the same structure.
     """
     w = smp.Symbol(f'\\omega_{{{sigma2_spin_name}}}', real=True)
     argument = q*w
@@ -1102,17 +1254,6 @@ def sop_R_term_sigma_delta_LAB(l, q1, q2, sigma, delta, delta_spin_name1, delta_
                                op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between a single-spin interaction and a double-spin interaction.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q1: Projection 1 of the coupled spherical tensor operator.
-        - q2: Projection 2 of the coupled spherical tensor operator.
-        - sigma: Name of the single-spin interaction.
-        - delta: Name of the double-spin interaction.
-        - delta_spin_name1: Name of the first spin associated with the double-spin interaction.
-        - delta_spin_name2: Name of the second spin associated with the double-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
     """
     w1 = smp.Symbol(f'\\omega_{{{delta_spin_name1}}}', real=True)
     w2 = smp.Symbol(f'\\omega_{{{delta_spin_name2}}}', real=True)
@@ -1124,15 +1265,6 @@ def sop_R_term_delta_sigma_LAB(l, q, delta, sigma, sigma_spin_name,
                                op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between a double-spin interaction and a single-spin interaction.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q: Projection of the spherical tensor operator.
-        - delta: Name of the double-spin interaction.
-        - sigma: Name of the single-spin interaction.
-        - sigma_spin_name: Name of the spin associated with the single-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
     """
     w = smp.Symbol(f'\\omega_{{{sigma_spin_name}}}', real=True)
     argument = q*w
@@ -1143,18 +1275,7 @@ def sop_R_term_delta_delta_LAB(l, q1, q2, delta1, delta2, delta2_spin_name1, del
                                  op_T_left, op_T_right):
      """
      Term in the relaxation superoperator between two double-spin interactions.
-     
-     Input:
-         - l: Rank of the spherical tensor operator.
-         - q1: Projection 1 of the coupled spherical tensor operator.
-         - q2: Projection 2 of the coupled spherical tensor operator.
-         - delta1: Name of the first double-spin interaction.
-         - delta2: Name of the second double-spin interaction.
-         - delta2_spin_name1: Name of the first spin associated with the second double-spin interaction.
-         - delta2_spin_name2: Name of the second spin associated with the second double-spin interaction.
-         - op_T_left: Left spherical tensor operator.
-         - op_T_right: Right spherical tensor operator.
-        """
+     """
      w1 = smp.Symbol(f'\\omega_{{{delta2_spin_name1}}}', real=True)
      w2 = smp.Symbol(f'\\omega_{{{delta2_spin_name2}}}', real=True)
      argument = q1*w1 + q2*w2
@@ -1166,16 +1287,6 @@ def sop_R_term_sigma_sigma_ROT(l, q, sigma1, sigma2, sigma1_spin_name, sigma2_sp
                                op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between two single-spin interactions in the rotating frame.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q: Projection of the spherical tensor operator.
-        - sigma1: Name of the first single-spin interaction.
-        - sigma2: Name of the second single-spin interaction.
-        - sigma1_spin_name: Name of the first spin associated with the first single-spin interaction.
-        - sigma2_spin_name: Name of the second spin associated with the second single-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
     """
     w2 = smp.Symbol(f'\\omega_{{{sigma2_spin_name}}}', real=True)
     argument = q*w2
@@ -1194,18 +1305,6 @@ def sop_R_term_sigma_delta_ROT(l, q1, q2, sigma, delta, sigma_spin_name, delta_s
                                 op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between a single-spin interaction and a double-spin interaction in the rotating frame.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q1: Projection 1 of the coupled spherical tensor operator.
-        - q2: Projection 2 of the coupled spherical tensor operator.
-        - sigma: Name of the single-spin interaction.
-        - delta: Name of the double-spin interaction.
-        - sigma_spin_name: Name of the spin associated with the single-spin interaction.
-        - delta_spin_name1: Name of the first spin associated with the double-spin interaction.
-        - delta_spin_name2: Name of the second spin associated with the double-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
     """
     w_d1 = smp.Symbol(f'\\omega_{{{delta_spin_name1}}}', real=True)
     w_d2 = smp.Symbol(f'\\omega_{{{delta_spin_name2}}}', real=True)
@@ -1225,18 +1324,6 @@ def sop_R_term_delta_sigma_ROT(l, q1, q2, delta, sigma, delta_spin_name1, delta_
                                 op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between a double-spin interaction and a single-spin interaction in the rotating frame.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q1: Projection 1 of the coupled spherical tensor operator.
-        - q2: Projection 2 of the coupled spherical tensor operator.
-        - delta: Name of the double-spin interaction.
-        - sigma: Name of the single-spin interaction.
-        - delta_spin_name1: Name of the first spin associated with the double-spin interaction.
-        - delta_spin_name2: Name of the second spin associated with the double-spin interaction.
-        - sigma_spin_name: Name of the spin associated with the single-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
     """
     w_s = smp.Symbol(f'\\omega_{{{sigma_spin_name}}}', real=True)
     argument = (q1+q2)*w_s
@@ -1256,21 +1343,6 @@ def sop_R_term_delta_delta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, delta1, delta2, de
                                 op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between two double-spin interactions in the rotating frame.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q1_d1: Projection 1 of the first coupled spherical tensor operator.
-        - q2_d1: Projection 2 of the first coupled spherical tensor operator.
-        - q1_d2: Projection 1 of the second coupled spherical tensor operator.
-        - q2_d2: Projection 2 of the second coupled spherical tensor operator.
-        - delta1: Name of the first double-spin interaction.
-        - delta2: Name of the second double-spin interaction.
-        - delta1_spin_name1: Name of the first spin associated with the first double-spin interaction.
-        - delta1_spin_name2: Name of the second spin associated with the first double-spin interaction.
-        - delta2_spin_name1: Name of the first spin associated with the second double-spin interaction.
-        - delta2_spin_name2: Name of the second spin associated with the second double-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
     """
     w_d1_1 = smp.Symbol(f'\\omega_{{{delta1_spin_name1}}}', real=True)
     w_d1_2 = smp.Symbol(f'\\omega_{{{delta1_spin_name2}}}', real=True)
@@ -1287,15 +1359,17 @@ def sop_R_term_delta_delta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, delta1, delta2, de
 
     return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_d1, 1, q2_d1, l, (q1_d1+q2_d1)).doit() * CG(1, q1_d2, 1, q2_d2, l, (q1_d2+q2_d2)).doit() * exp
 
-def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
+def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
     """
-    Symbolic relaxation superoperator. 
-    NOTE: This is the main equation in the referenced publication.
+    Matrix representation of the relaxation superoperator in Liouville space.
+    NOTE: This is the implementation of the main equation in the referenced publication.
     
     Input:
         - SpinOperators: SpinOperators object.
-        - INCOHERENT_INTERACTIONS: Dictionary of incoherent interactions.
-        - spin_names: List of spin names to handle chemically equivalent spins (default = None).
+        - INCOHERENT_INTERACTIONS: Dictionary of incoherent interactions (see README.md for details)
+
+    Returns:
+        - R_final: Matrix representation of the relaxation superoperator in Liouville space.
     """
     # Initialize the relaxation superoperator
     R_final = smp.zeros(SpinOperators.N_states**2, SpinOperators.N_states**2, complex=True)
@@ -1310,7 +1384,7 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
 
             # Single-spin single-spin mechanism pair
             if properties1[0][0] == 'S' and properties2[0][0] == 'S':
-                print('\nComputing R for single-spin single-spin mechanism pairs:')
+                print('\nComputing R for single-spin single-spin interaction pairs:')
 
                 # Lists of coupling strengths, list indices stand for the spin indices
                 # NOTE: Coupling strength is always 0 or 1 for the symbolic relaxation superoperator
@@ -1332,20 +1406,13 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
-                                intr_name1 = mechanism1 + str(spin_1_index)
-                                intr_name2 = mechanism2 + str(spin_2_index)
-                                print(f'[{intr_name1} * {intr_name2}]')
+                                intr_name1 = mechanism1 + str(spin_1_index + 1)
+                                intr_name2 = mechanism2 + str(spin_2_index + 1)
+                                print(f'{intr_name1} * {intr_name2}')
 
-                                # Handle chemically equivalent spins (homonuclear systems)
-                                if spin_names is not None:
-                                    for i, name in enumerate(spin_names):
-                                        if i == spin_1_index:
-                                            spin_1_name = name
-                                        if i == spin_2_index:
-                                            spin_2_name = name
-                                else:
-                                    spin_1_name = spin_1_index
-                                    spin_2_name = spin_2_index
+                                # Handle chemically equivalent (homonuclear) spins
+                                spin_1_name = SpinOperators.spinsystem[spin_1_index]
+                                spin_2_name = SpinOperators.spinsystem[spin_2_index]
 
                                 # Loop over all common ranks and components
                                 for l in ls:
@@ -1373,7 +1440,7 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
 
             # Single-spin double-spin mechanism pair
             elif properties1[0][0] == 'S' and properties2[0][0] == 'D':
-                print('\nComputing R for single-spin double-spin mechanism pairs:')
+                print('\nComputing R for single-spin double-spin interaction pairs:')
                 
                 # List of coupling strengths and coupling-strength matrix
                 coupling_strengths1 = properties1[1]
@@ -1392,23 +1459,14 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
-                                intr_name1 = mechanism1 + str(spin_1_index)
-                                intr_name2 = mechanism2 + str(spin_2_index_i) + str(spin_2_index_j)
-                                print(f'[{intr_name1} * {intr_name2}]')
+                                intr_name1 = mechanism1 + str(spin_1_index + 1)
+                                intr_name2 = mechanism2 + str(spin_2_index_i + 1) + str(spin_2_index_j + 1)
+                                print(f'{intr_name1} * {intr_name2}')
 
-                                # Handle chemically equivalent spins (homonuclear systems)
-                                if spin_names is not None:
-                                    for i, name in enumerate(spin_names):
-                                        if i == spin_1_index:
-                                            spin_1_name = name
-                                        if i == spin_2_index_i:
-                                            spin_2_name_i = name
-                                        if i == spin_2_index_j:
-                                            spin_2_name_j = name
-                                else:
-                                    spin_1_name = spin_1_index
-                                    spin_2_name_i = spin_2_index_i
-                                    spin_2_name_j = spin_2_index_j
+                                # Handle chemically equivalent (homonuclear) spins
+                                spin_1_name = SpinOperators.spinsystem[spin_1_index]
+                                spin_2_name_i = SpinOperators.spinsystem[spin_2_index_i]
+                                spin_2_name_j = SpinOperators.spinsystem[spin_2_index_j]
 
                                 for l in ls:
                                     # Loop over q1 and q2 values in the symbolic case
@@ -1437,7 +1495,7 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
 
             # Double-spin single-spin mechanism pair
             elif properties1[0][0] == 'D' and properties2[0][0] == 'S':
-                print('\nComputing R for double-spin single-spin mechanism pairs:')
+                print('\nComputing R for double-spin single-spin interaction pairs:')
                     
                 coupling_strengths_matrix1 = properties1[1]
                 coupling_strengths2 = properties2[1]
@@ -1454,27 +1512,18 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
-                                intr_name1 = mechanism1 + str(spin_1_index_i) + str(spin_1_index_j)
-                                intr_name2 = mechanism2 + str(spin_2_index)
-                                print(f'[{intr_name1} * {intr_name2}]')
+                                intr_name1 = mechanism1 + str(spin_1_index_i + 1) + str(spin_1_index_j + 1)
+                                intr_name2 = mechanism2 + str(spin_2_index + 1)
+                                print(f'{intr_name1} * {intr_name2}')
 
-                                # Handle chemically equivalent spins (homonuclear systems)
-                                if spin_names is not None:
-                                    for i, name in enumerate(spin_names):
-                                        if i == spin_1_index_i:
-                                            spin_1_name_i = name
-                                        if i == spin_1_index_j:
-                                            spin_1_name_j = name
-                                        if i == spin_2_index:
-                                            spin_2_name = name
-                                else:
-                                    spin_1_name_i = spin_1_index_i
-                                    spin_1_name_j = spin_1_index_j
-                                    spin_2_name = spin_2_index
+                                # Handle chemically equivalent (homonuclear) spins
+                                spin_1_name_i = SpinOperators.spinsystem[spin_1_index_i]
+                                spin_1_name_j = SpinOperators.spinsystem[spin_1_index_j]
+                                spin_2_name = SpinOperators.spinsystem[spin_2_index]
 
                                 for l in ls:
 
-                                    # Different cases for laboaratory and rotating frames
+                                    # Different cases for laboratory and rotating frame
                                     if settings.FRAME == 'lab':                                        
                                         for q in range(-1, 2):
                                             
@@ -1508,7 +1557,7 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
 
             # Double-spin double-spin mechanism pair
             elif properties1[0][0] == 'D' and properties2[0][0] == 'D':
-                print('\nComputing R for double-spin double-spin mechanism pairs:')
+                print('\nComputing R for double-spin double-spin interaction pairs:')
                 
                 coupling_strengths_matrix1 = properties1[1]
                 coupling_strengths_matrix2 = properties2[1]
@@ -1525,26 +1574,15 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
-                                intr_name1 = mechanism1 + str(spin_1_index_i) + str(spin_1_index_j)
-                                intr_name2 = mechanism2 + str(spin_2_index_i) + str(spin_2_index_j)
-                                print(f'[{intr_name1} * {intr_name2}]')
+                                intr_name1 = mechanism1 + str(spin_1_index_i + 1) + str(spin_1_index_j + 1)
+                                intr_name2 = mechanism2 + str(spin_2_index_i + 1) + str(spin_2_index_j + 1)
+                                print(f'{intr_name1} * {intr_name2}')
 
-                                # Handle chemically equivalent spins (homonuclear systems)
-                                if spin_names is not None:
-                                    for i, name in enumerate(spin_names):
-                                        if i == spin_1_index_i:
-                                            spin_1_name_i = name
-                                        if i == spin_1_index_j:
-                                            spin_1_name_j = name
-                                        if i == spin_2_index_i:
-                                            spin_2_name_i = name
-                                        if i == spin_2_index_j:
-                                            spin_2_name_j = name
-                                else:
-                                    spin_1_name_i = spin_1_index_i
-                                    spin_1_name_j = spin_1_index_j
-                                    spin_2_name_i = spin_2_index_i
-                                    spin_2_name_j = spin_2_index_j
+                                # Handle chemically equivalent (homonuclear) spins
+                                spin_1_name_i = SpinOperators.spinsystem[spin_1_index_i]
+                                spin_1_name_j = SpinOperators.spinsystem[spin_1_index_j]
+                                spin_2_name_i = SpinOperators.spinsystem[spin_2_index_i]
+                                spin_2_name_j = SpinOperators.spinsystem[spin_2_index_j]
 
                                 for l in ls:
                                     
@@ -1583,13 +1621,13 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
                                                             T_right = T_right_i[1, q1_d2] @ T_right_j[1, q2_d2]
 
                                                             R_term = sop_R_term_delta_delta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
-                                                                spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                                          spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
                                                             R_final += R_term
       
             else:
-                raise ValueError('Invalid mechanism pair. Check the INCOHERENT_INTERACTIONS dictionary.')
+                raise ValueError('Invalid mechanism pair. Check the input dictionary for incoherent interactions.')
             
-    print('\n All done!')                                 
+    print('\nR computed.')
     return R_final
 
 ####################################################################################################
@@ -1597,14 +1635,33 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, spin_names=None):
 ####################################################################################################
 class RelaxationSuperoperator(Superoperator):
     """
-    General class for the relaxation superoperator of a spin system.
-    Inherits from Superoperator.
+    General class for the relaxation superoperator of a spin system. Inherits from Superoperator.
+    See Superoperator and Operator classes for more information.
 
-    See Superoperator (and Operator) class for more information.
+    Input:
+        - sop_R: Relaxation superoperator matrix representation.
     """
     def __init__(self, sop_R):
         super().__init__(sop_R)
 
+    def rate(self, basis_symbols, spin_index_lqs_1, spin_index_lqs_2=None):
+        """
+        Relaxation rate between two basis operators.
+
+        Input:
+            - basis_symbols: List of basis operator symbols.
+            - spin_index_lqs_1: String of the first spin index and lq values (see find_T_symbol_index).
+            - spin_index_lqs_2: String of the second spin index and lq values. If None, it is the same as spin_index_lqs_1.
+
+        Returns:
+            - The relaxation rate.
+        """
+        if spin_index_lqs_2 is None:
+            spin_index_lqs_2 = spin_index_lqs_1
+        index_1 = find_T_symbol_index(basis_symbols, spin_index_lqs_1)
+        index_2 = find_T_symbol_index(basis_symbols, spin_index_lqs_2)
+        return self.op[index_1, index_2]
+             
     def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
         """
         Set all J(w) functions in the relaxation superoperator to the isotropic rotational
@@ -1619,19 +1676,20 @@ class RelaxationSuperoperator(Superoperator):
         for J_w in J_w_functions:
             # See docstring for extract_J_w_arguments and J_w_iso_rot_diff
             intrs, lq, arg = extract_J_w_symbols_and_args(J_w)
-            subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg, tau_c,
+            subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg,
                                                                  fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
         self.substitute(subst_dict)
 
     def neglect_cross_correlated_terms(self, mechanism1, mechanism2):
         """
         Neglect all cross-correlated terms between mechanism1 and mechanism2 in the relaxation superoperator.
+        NOTE: mechanism1 and mechanism2 can be the same.
 
         Input:
             - mechanism1: Name of the first mechanism.
             - mechanism2: Name of the second mechanism.
         """
-        J_w_functions = [function for function in self.functions_in if 'J' in str(function)]
+        J_w_functions = [function for function in self.functions_in if 'J' in str(function) or 'G' in str(function)]
         for J_w in J_w_functions:
             # See docstring for extract_J_w_arguments
             intrs, _, _ = extract_J_w_symbols_and_args(J_w)
@@ -1647,7 +1705,7 @@ class RelaxationSuperoperator(Superoperator):
         """
         Neglect all cross-correlated terms in the relaxation superoperator.
         """
-        J_w_functions = [function for function in self.functions_in if 'J' in str(function)]
+        J_w_functions = [function for function in self.functions_in if 'J' in str(function) or 'G' in str(function)]
         for J_w in J_w_functions:
             # See docstring for extract_J_w_arguments
             intrs, _, _ = extract_J_w_symbols_and_args(J_w)
@@ -1657,7 +1715,7 @@ class RelaxationSuperoperator(Superoperator):
 ####################################################################################################
 # Master equations.
 ####################################################################################################
-def ime_equations_of_motion(R, basis_op_symbols, expectation_values=True, operator_indexes=None):
+def ime_equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
     """
     System of differential equations resulting from the inhomogeneous master equation.
     
@@ -1665,22 +1723,28 @@ def ime_equations_of_motion(R, basis_op_symbols, expectation_values=True, operat
         - R: Relaxation superoperator matrix representation.
         - basis_op_symbols: List of basis operator symbols.
         - expectation_values: Boolean to display as expectation values (default = True).
-        - operator_indexes: List of indexes to select a subset of basis operators (default = None).
+        - included_operators: List of indexes to select a subset of basis operators (default = None).
+
+    Returns:
+        - System of differential equations as SymPy equations.
     """
-    if operator_indexes is not None:
-        R = pick_from_matrix(R, operator_indexes)
-        basis_op_symbols = pick_from_list(basis_op_symbols, operator_indexes)
+    if included_operators is not None:
+        R = pick_from_matrix(R, included_operators)
+        basis_op_symbols = pick_from_list(basis_op_symbols, included_operators)
+
     if expectation_values:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
     else:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(x, t))
     rhs = smp.Matrix([smp.Symbol(f'\\Delta {symbol}'.replace('*', '')) for symbol in basis_op_symbols])
+
     if expectation_values:
         rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
+
     rhs = R * rhs
     return smp.Eq(lhs, rhs, evaluate=False)
 
-def lindblad_equations_of_motion(R, basis_op_symbols, expectation_values=True, operator_indexes=None):
+def lindblad_equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
     """
     System of differential equations resulting from the Lindblad master equation.
     
@@ -1688,25 +1752,29 @@ def lindblad_equations_of_motion(R, basis_op_symbols, expectation_values=True, o
         - R: Relaxation superoperator matrix representation.
         - basis_op_symbols: List of basis operator symbols.
         - expectation_values: Boolean to display as expectation values (default = True).
-        - operator_indexes: List of indexes to select a subset of basis operators (default = None).
+        - included_operators: List of indexes to select a subset of basis operators (default = None).
     """
-    if operator_indexes is not None:
-        R = pick_from_matrix(R, operator_indexes)
-        basis_op_symbols = pick_from_list(basis_op_symbols, operator_indexes)
+    if included_operators is not None:
+        R = pick_from_matrix(R, included_operators)
+        basis_op_symbols = pick_from_list(basis_op_symbols, included_operators)
+
     if expectation_values:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
     else:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(x, t))
+
     rhs = smp.Matrix([symbol for symbol in basis_op_symbols])
     if expectation_values:
         rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
+
     rhs = R * rhs
     return smp.Eq(lhs, rhs, evaluate=False)
 
 def equations_of_motion_to_latex(eqs, savename):
     """
     Convert a master equation to LaTeX.
-    
+    NOTE: Saves the LaTeX file to the current working directory.
+
     Input:
         - eqs: System of differential equations.
         - savename: Name to save the LaTeX file.
@@ -1728,19 +1796,24 @@ def equations_of_motion_to_latex(eqs, savename):
 ####################################################################################################
 # Convenience functions.
 ####################################################################################################
-def sop_R_in_T_basis(S, INCOHERENT_INTERACTIONS, spin_names=None, sorting=None):
+def R_object_and_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
     """
-    Compute the relaxation superoperator object in the direct product basis of spherical tensor operators.
+    Compute the relaxation superoperator object, basis, and symbols using the
+    product basis of the spherical tensor operators.
     
     Input:
-        - S: Spin system object.
+        - spinsystem: List of nuclear isotopes (strings) that define the spin system.
         - INCOHERENT_INTERACTIONS: Dictionary of incoherent interactions.
-        - spin_names: List of spin names to handle chemically equivalent spins (default = None).
-        - sorting: Sorting of the basis operators (default = None).
+        - sorting: Sorting of the basis operators (default = 'v1').
+
+    Returns:
+        - R: Relaxation superoperator object.
+        - T_basis: list of basis operators in the spherical tensor basis.
+        - T_symbols: list of basis operator symbols in the spherical tensor basis.
     """
     # Compute the relaxation superoperator object
-    Sops = SpinOperators(S)
-    R = sop_R(Sops, INCOHERENT_INTERACTIONS, spin_names=spin_names)
+    Sops = SpinOperators(spinsystem)
+    R = sop_R(Sops, INCOHERENT_INTERACTIONS)
     R = RelaxationSuperoperator(R)
 
     # Convert to spherical tensor basis

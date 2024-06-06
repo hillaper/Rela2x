@@ -1,9 +1,5 @@
 """
 General settings for the Rela2x package.
-
-Authors: 
-    Perttu Hilla.
-    perttu.hilla@oulu.fi
 """
 
 # Level of theory for the relaxation superoperator.
