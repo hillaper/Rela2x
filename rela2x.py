@@ -1640,16 +1640,17 @@ class RelaxationSuperoperator(Superoperator):
 
     Input:
         - sop_R: Relaxation superoperator matrix representation.
+        - basis_symbols: List of basis operator symbols.
     """
-    def __init__(self, sop_R):
-        super().__init__(sop_R)
+    def __init__(self, sop_R, basis_symbols):
+        Superoperator.__init__(self, sop_R)
+        self.basis_symbols = basis_symbols
 
-    def rate(self, basis_symbols, spin_index_lqs_1, spin_index_lqs_2=None):
+    def rate(self, spin_index_lqs_1, spin_index_lqs_2=None):
         """
         Relaxation rate between two basis operators.
 
         Input:
-            - basis_symbols: List of basis operator symbols.
             - spin_index_lqs_1: String of the first spin index and lq values (see find_T_symbol_index).
             - spin_index_lqs_2: String of the second spin index and lq values. If None, it is the same as spin_index_lqs_1.
 
@@ -1658,8 +1659,8 @@ class RelaxationSuperoperator(Superoperator):
         """
         if spin_index_lqs_2 is None:
             spin_index_lqs_2 = spin_index_lqs_1
-        index_1 = find_T_symbol_index(basis_symbols, spin_index_lqs_1)
-        index_2 = find_T_symbol_index(basis_symbols, spin_index_lqs_2)
+        index_1 = find_T_symbol_index(self.basis_symbols, spin_index_lqs_1)
+        index_2 = find_T_symbol_index(self.basis_symbols, spin_index_lqs_2)
         return self.op[index_1, index_2]
              
     def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
@@ -1811,13 +1812,17 @@ def R_object_and_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
         - T_basis: list of basis operators in the spherical tensor basis.
         - T_symbols: list of basis operator symbols in the spherical tensor basis.
     """
-    # Compute the relaxation superoperator object
+    # Create SpinOperators object
     Sops = SpinOperators(spinsystem)
-    R = sop_R(Sops, INCOHERENT_INTERACTIONS)
-    R = RelaxationSuperoperator(R)
 
-    # Convert to spherical tensor basis
+    # Compute the matrix representation of the relaxation superoperator
+    R = sop_R(Sops, INCOHERENT_INTERACTIONS)
+
+    # Compute the direct product basis of the spherical tensor operators
     T_basis, T_symbols = T_product_basis_and_symbols(Sops, sorting=sorting)
+
+    # Create the relaxation superoperator and convert to the product basis
+    R = RelaxationSuperoperator(R, T_symbols)
     R.to_basis(T_basis)
 
     return R, T_basis, T_symbols

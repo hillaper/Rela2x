@@ -97,8 +97,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, are
     - `INCOHERENT_INTERACTIONS = {`  
         `'CSA': ('SL', [1, 0, 0], [0, 1, 2]),`  
         `'Q': ('SQ', [1, 0, 0], [2]),`  
-        `'DD': ('D', [[0, 1, 1], [0, 0, 1], [0, 0, 0]], [2])`
-        `}`
+        `'DD': ('D', [[0, 1, 1], [0, 0, 1], [0, 0, 0]], [2])}`
 
 5. Compute the matrix representation of *R*, convert it to a suitable product operator basis and create a `RelaxationSuperoperator` object:
 
@@ -118,7 +117,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, are
 
     and functions:
 
-    - `rate(basis_symbols, spin_index_lqs_1, spin_index_lqs_2=None)` returns the relaxation rate between two basis operators. The `spin_index_lqs` arguments have to be strings of the form `'110'`, where the first number refers to the index of the spin, the second numbers to the rank *l* and the third number to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_lqs_1` only will return the auto-relaxation rate of that operator, whereas if `spin_index_lqs_2` is also provided the cross-relaxation rate between those two operators is returned (see the examples provided in the repository)
+    - `rate(spin_index_lqs_1, spin_index_lqs_2=None)` returns the relaxation rate between two basis operators. The `spin_index_lqs` arguments have to be strings of the form `'110'`, where the first number refers to the index of the spin, the second numbers to the rank *l* and the third number to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_lqs_1` only will return the auto-relaxation rate of that operator, whereas if `spin_index_lqs_2` is also provided the cross-relaxation rate between those two operators is returned (see the examples provided in the repository)
 
     - `.to_basis(basis)` performs a change of basis using a list of basis operators `basis`
 
