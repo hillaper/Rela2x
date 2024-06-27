@@ -2,10 +2,16 @@
 Dictionary of NMR isotopes with their spin quantum numbers and gyromagnetic ratios in MHz/T.
 
 From: https://www.kherb.io/docs/nmr_table.html
+
+Isotopes with different _X can be used to simulate different chemical shifts.
+If your isotope is not in the list, you can add it by following the format of the other isotopes.
 """
 
 ISOTOPES =\
 {'1H': [0.5, 42.577478615342585],
+ '1H_1': [0.5, 42.577478615342585], # For chemical shift differences
+ '1H_2': [0.5, 42.577478615342585],
+ '1H_3': [0.5, 42.577478615342585],
  '2D': [1.0, 6.5359028540009305],
  '3T': [0.5, 45.41483815473964],
  '3He': [0.5, -32.43604456417949],
@@ -15,7 +21,13 @@ ISOTOPES =\
  '10B': [3.0, 4.57473388220653],
  '11B': [1.5, 13.66160796005943],
  '13C': [0.5, 10.707746367473971],
+ '13C_1': [0.5, 10.707746367473971], # For chemical shift differences
+ '13C_2': [0.5, 10.707746367473971],
+ '13C_3': [0.5, 10.707746367473971],
  '14N': [1.0, 3.076272817251739],
+ '14N_1': [1.0, 3.076272817251739], # For chemical shift differences
+ '14N_2': [1.0, 3.076272817251739],
+ '14N_3': [1.0, 3.076272817251739],
  '15N': [0.5, -4.3152552187859134],
  '17O': [2.5, -5.7734832203316975],
  '19F': [0.5, 40.06924371705693],
