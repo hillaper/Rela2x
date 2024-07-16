@@ -4,13 +4,13 @@
 
 Rela²x is a freely available Python package that contains a collection of functions and classes for Analytic and Automatic high-field liquid-state NMR relaxation theory. 
 
-The package provides tools to compute, approximate and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for various small spin systems with arbitrary spin quantum numbers and relaxation mechanisms. Every possible cross-term between each interaction is included. Approximations and simplifications for the analysis of *R*, as well as visualization tools, are available. Rela²x is designed to be easy to use and understand, requiring only basic knowledge of Python.
+The package provides tools to compute, approximate and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems and spin quantum numbers with any relaxation mechanisms. Every possible cross-term between each interaction is included. Approximations and simplifications for the analysis of *R*, as well as visualization tools, are available. Rela²x is designed to be easy to use and understand, requiring only basic knowledge of Python.
 
 ## Notes
 
 Before using Rela²x, it is recommended that you have read the related publication []. (There, the Greek letter Gamma is used for the relaxation superoperator, but in Python this is inconvenient, so here, and also in the code, R is used.)
 
-Basic knowledge of Python is assumed. Additional experience with the *SymPy* library can provide helpful because the matrix representation of *R* is a *SymPy* matrix object.
+Basic knowledge of Python is assumed. Additional experience with the *SymPy* library can provide helpful because it is the main library used by Rela²x.
 
 For detailed information on the functions and classes of Rela²x, see the documentation directly in `rela2x.py`.
 
@@ -86,11 +86,11 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, are
 
     - `mechanism_name` appears in the spectral-density function symbols and is mostly a cosmetic label that does not affect the actual calculation. However, these names are utilised if cross-correlated couplings are neglected (see below).
 
-    - For single-spin linear or single-spin quadratic interactions, `type` is either `'SL'` or `'SQ'`, respectively. For double-spin bilinear interactions, type is always `'D'`. Bilinearity of double-spin interactions does not need to be specified.
+    - For single-spin linear or single-spin quadratic interactions, `type` is either `'1L'` or `'1Q'`, respectively. For double-spin bilinear interactions, type is always `'2'`. Bilinearity of double-spin interactions does not need to be specified.
 
     - The `interaction_array` for single-spin mechanisms is a Python list of values `1` or `0`, defining which spins in `spin_system` are included in that interaction. For double-spin mechanisms, a coupling matrix (list of lists) is provided where the `1`s define which spins are coupled. Only the upper triangle needs to be provided.
 
-    - `rank_list` is a list of ranks *l* included in the given mechanism.
+    - `rank_list` is a list of ranks *l* of the given mechanism.
 
     For instance, for our example `spin_system = ['14N', '1H', '1H']` with chemical-shift anisotropy (including all ranks) and quadrupolar interactions on ¹⁴N, and dipole-dipole couplings between all of the spins, we would have:
 
@@ -101,45 +101,47 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, are
 
 5. Compute the matrix representation of *R*, convert it to a suitable product operator basis and create a `RelaxationSuperoperator` object:
 
-    It is useful to represent *R* in a basis where it obtains a block-diagonal form. The best basis for this purpose is the direct product basis of spherical tensor operators []. All of this is automatically done by calling:
+    It is useful to represent *R* in a basis where it obtains a block-diagonal form. The best basis for this purpose is the direct product basis of spherical tensor operators []. This is automatically done by calling:
 
-    - `R, T_basis, T_symbols = R_object_and_T_basis(spin_system, INCOHERENT_INTERACTIONS, sorting='v1')`
+    - `R = R_object_in_T_basis(spin_system, INCOHERENT_INTERACTIONS, sorting='v1')`
 
-    The `R_object_and_T_basis` function takes as input the `spin_system` and `INCOHERENT_INTERACTIONS` variables as defined above, and optionally information about how to sort the operator basis via `sorting`. Three options are available: `'v1'`, `'v2'` or `None` (for details, see documentation in `rela2x.py`).
+    The `R_object_in_T_basis` function takes as input the `spin_system` and `INCOHERENT_INTERACTIONS` variables as defined above, and optionally information about how to sort the operator basis via `sorting`. Three options are available: `'v1'`, `'v2'` or `None` (for details, see documentation in `rela2x.py`).
     
-    The function returns a `RelaxationSuperoperator` object, a list of basis operators and a list of corresponding operator symbols. The `RelaxationSuperoperator` object has the following attributes:
+    The function returns a `RelaxationSuperoperator` object that has the following attributes:
 
-    - `.op` returns the matrix representation of *R*
+    - `op` returns the matrix representation of *R*
 
-    - `.symbols_in` returns all symbols appearing in *R*
+    - `basis_symbols` returns all basis operator symbols corresponding to the direct product basis of spherical tensor operators
 
-    - `.functions_in` returns all functions appearing in *R*
+    - `symbols_in` returns all symbols appearing in *R*
+
+    - `functions_in` returns all functions appearing in *R*
 
     and functions:
 
     - `rate(spin_index_lqs_1, spin_index_lqs_2=None)` returns the relaxation rate between two basis operators. The `spin_index_lqs` arguments have to be strings of the form `'110'`, where the first number refers to the index of the spin, the second numbers to the rank *l* and the third number to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_lqs_1` only will return the auto-relaxation rate of that operator, whereas if `spin_index_lqs_2` is also provided the cross-relaxation rate between those two operators is returned (see the examples provided in the repository)
 
-    - `.to_basis(basis)` performs a change of basis using a list of basis operators `basis`
+    - `to_basis(basis)` performs a change of basis using a list of basis operators `basis`
 
-    - `.to_isotropic_rotational_diffusion(fast_motion_limit=False, slow_motion_limit=False)` applies the isotropic rotational diffusion model with the fast-motion or slow-motion limit approximation if desired
+    - `to_isotropic_rotational_diffusion(fast_motion_limit=False, slow_motion_limit=False)` applies the isotropic rotational diffusion model with the fast-motion or slow-motion limit approximation if desired
 
-    - `.neglect_cross_correlated_terms(mechanism1, mechanism2)` neglects cross-correlated contributions in *R* between two mechanisms. The arguments `mechanism1` and `mechanism2` have to correspond to the names chosen for `mechanism_name`s in `INCOHERENT_INTERACTIONS`. The same mechanism can be provided twice to, *e.g.*, neglect cross-correlated dipole-dipole couplings
+    - `neglect_cross_correlated_terms(mechanism1=None, mechanism2=None)` neglects cross-correlated contributions in *R* between two mechanisms. The arguments `mechanism1` and `mechanism2` have to correspond to the names chosen for `mechanism_name`s in `INCOHERENT_INTERACTIONS`. If `mechanism2` is not provided, `mechanism1` is used, and if neither of them is provided, all cross-correlated contributions are neglected
 
-    - `.neglect_ALL_cross_correlated_terms()` neglects all cross-correlated contributions
+    - `substitute(substitutions_dict)` substitutes symbols and functions in *R* with given numerical values. This allows easy conversion to NumPy arrays for numerical use
 
-    - `.substitute(substitutions_dict)` substitutes symbols and functions in *R* with given numerical values (allows easy conversion to NumPy arrays for numerical use)
+    - `visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=None)` visualizes *R* as a matrix plot. If desired, only certain sections of *R* can be visualised via `rows_start` and `rows_end`. A legend where the basis-operator symbols appear is drawn if `basis_symbols` is provided. Fontsize can be adjusted for large matrices.
 
-    - `.visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=None)` visualizes *R* as a matrix plot. If desired, only certain sections of *R* can be visualised via `rows_start` and `rows_end`. A legend where the basis-operator symbols appear is drawn if `basis_symbols` is provided. Fontsize can be adjusted for large matrices.
+    - `filter_out(filter_name, filter_value)` filters out potentially uninteresting regions of *R* based on given criteria. `filter_name` has to be one of the following: 'c' for coherence order, 's' for spin order, 't' for type. This determines the criteria based on which the filtration is done. `filter_value` is an integer or a list of integers depending on which filtration is used (see the documentation in `rela2x.py`) and determines which values are kept (not filtered out) in *R*. For instance, calling `R.filter_out('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
     
     Best way to get acquainted is to try these for yourself :-).
 
-6. After *R* is computed, the resulting relaxation equations of motion for the observables can be constructed. Different functions need to be used depending on `RELAXATION_THEORY`, because the semiclassical  and Lindbladian forms of the master equation are different:
+6. After *R* is computed, the resulting relaxation equations of motion for the observables can be constructed. Different functions need to be used depending on `RELAXATION_THEORY`, because the semiclassical and Lindbladian master equations are different:
 
-    - `eoms = ime_equations_of_motion(R.op, T_symbols, expectation_values=True, included_operators=None)` uses the semiclassical (or inhomogeneous) master equation (IME)
+    - `eoms = ime_equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)` uses the semiclassical (inhomogeneous) master equation (IME)
 
-    - `eoms = lindblad_equations_of_motion(R.op, T_symbols, expectation_values=True, included_operators=None)` uses the Lindbladian (quantum mechanical) master equation.
+    - `eoms = lindblad_equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)` uses the Lindbladian master equation.
 
-    Here, `R.op` is the matrix representation of *R*, `T_symbols` is the list of basis operator symbols and the rest are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object.
+    Here, `R.op` is the matrix representation of *R*, `R.basis_symbols` is the list of basis operator symbols and the rest are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object.
 
 7. The equations of motion can be automatically saved in LaTeX format to the current working directory as a .txt file for further use in, *e.g.*, publications:
 
@@ -153,7 +155,7 @@ Three example notebooks that showcase the usage of Rela²x are included in the r
 
 ## Warnings
 
-Rela²x is not designed, and should hence be used with caution for spin systems where the number of rows in *R* is in the hundreds. In particular, displaying the entire operator might lead to Jupyter Notebook crashing.
+Rela²x is not designed, and should hence be used with caution for spin systems where the dimension of *R* is > 100. In particular, displaying the entire operator might lead to Jupyter Notebook crashing. Larger systems can, however, be computed and using the `rate` function can provide useful in such cases.
 
 ## Advanced users
 

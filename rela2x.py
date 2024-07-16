@@ -1721,7 +1721,8 @@ class RelaxationSuperoperator(Superoperator):
 
         Input:
             - filter_name: String of filter name. 'c' for coherence order, 's' for spin order, 't' for type.
-            - filter_value: List or integer of filter values. (See coherence_order_filter, spin_order_filter and type_filter)
+            - filter_value: List or integer of filter values. (See coherence_order_filter, spin_order_filter and type_filter).
+            Determines the filter values to be kept.
         """
         if filter_name == 'c':
             self.op, self.basis_symbols = coherence_order_filter(self.op, self.basis_symbols, filter_value)
@@ -1820,8 +1821,6 @@ def equations_of_motion_to_latex(eqs, savename):
 ####################################################################################################
 # Convenience functions.
 ####################################################################################################
-# NOTE: New version!
-# TODO: Remove^
 def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
     """
     Compute the relaxation superoperator object, basis, and symbols in the
