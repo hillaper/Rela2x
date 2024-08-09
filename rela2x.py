@@ -209,7 +209,7 @@ def T_symbol_Nth_spin_projection(T_symbol, N):
     else:
         return 0
 
-def find_T_symbol_index(T_symbols, spin_index_lqs):
+def T_symbol_list_index(T_symbols, spin_index_lqs):
     """
     Find the list index of a symbol with given spin indexes, ls and qs from a list of spherical tensor operator symbols.
     
@@ -1202,6 +1202,7 @@ def extract_J_w_symbols_and_args(J):
 ####################################################################################################
 # Relaxation superoperators.
 # NOTE: alpha is single-spin interaction and beta is two-spin interaction (see the paper).
+# NOTE: New! Combine functions for laboratory and rotating frames.
 ####################################################################################################
 def sop_R_term(op_T_left, J_w, op_T_right):
     """
@@ -1222,137 +1223,181 @@ def sop_R_term(op_T_left, J_w, op_T_right):
         return -J_w * sop_D(op_T_left, op_T_right.H)
     
 # NOTE: The functions below have the same in input and return structure as sop_R_term_alpha_alpha_LAB.
-# Laboratory frame:
-def sop_R_term_alpha_alpha_LAB(l, q, alpha1, alpha2, alpha2_spin_name,
-                               op_T_left, op_T_right):
+# # Laboratory frame:
+# def sop_R_term_alpha_alpha_LAB(l, q, alpha1, alpha2, alpha2_spin_name,
+#                                op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between two single-spin interactions.
+    
+#     Input:
+#         - l: Rank of the spherical tensor operator.
+#         - q: Projection of the spherical tensor operator.
+#         - alpha1: Name of the first single-spin interaction.
+#         - alpha2: Name of the second single-spin interaction.
+#         - alpha2_spin_name: Name of the second spin associated with the second single-spin interaction.
+#         - op_T_left: Left spherical tensor operator.
+#         - op_T_right: Right spherical tensor operator.
+
+#     Returns:
+#         - Term in the relaxation superoperator.
+#     """
+#     w = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
+#     argument = q*w
+#     J = J_w(alpha1, alpha2, l, argument)
+#     return sop_R_term(op_T_left, J, op_T_right)
+
+# def sop_R_term_alpha_beta_LAB(l, q1, q2, alpha, beta, beta_spin_name1, beta_spin_name2,
+#                                op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction.
+#     """
+#     w1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
+#     w2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
+#     argument = q1*w1 + q2*w2
+#     J = J_w(alpha, beta, l, argument)
+#     return (sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit())
+
+# def sop_R_term_beta_alpha_LAB(l, q, beta, alpha, alpha_spin_name,
+#                                op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction.
+#     """
+#     w = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
+#     argument = q*w
+#     J = J_w(beta, alpha, l, argument)
+#     return sop_R_term(op_T_left, J, op_T_right)
+
+# def sop_R_term_beta_beta_LAB(l, q1, q2, beta1, beta2, beta2_spin_name1, beta2_spin_name2,
+#                                  op_T_left, op_T_right):
+#      """
+#      Term in the relaxation superoperator between two two-spin interactions.
+#      """
+#      w1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
+#      w2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
+#      argument = q1*w1 + q2*w2
+#      J = J_w(beta1, beta2, l, argument)
+#      return (sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit())
+
+# Both frames:
+# def sop_R_term_alpha_alpha_ROT(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_name,
+#                                op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between two single-spin interactions in the rotating frame.
+#     """
+def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_name,
+                           op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between two single-spin interactions.
-    
-    Input:
-        - l: Rank of the spherical tensor operator.
-        - q: Projection of the spherical tensor operator.
-        - alpha1: Name of the first single-spin interaction.
-        - alpha2: Name of the second single-spin interaction.
-        - alpha2_spin_name: Name of the second spin associated with the second single-spin interaction.
-        - op_T_left: Left spherical tensor operator.
-        - op_T_right: Right spherical tensor operator.
-
-    Returns:
-        - Term in the relaxation superoperator.
-    """
-    w = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
-    argument = q*w
-    J = J_w(alpha1, alpha2, l, argument)
-    return sop_R_term(op_T_left, J, op_T_right)
-
-def sop_R_term_alpha_beta_LAB(l, q1, q2, alpha, beta, beta_spin_name1, beta_spin_name2,
-                               op_T_left, op_T_right):
-    """
-    Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction.
-    """
-    w1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
-    w2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
-    argument = q1*w1 + q2*w2
-    J = J_w(alpha, beta, l, argument)
-    return (sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit())
-
-def sop_R_term_beta_alpha_LAB(l, q, beta, alpha, alpha_spin_name,
-                               op_T_left, op_T_right):
-    """
-    Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction.
-    """
-    w = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
-    argument = q*w
-    J = J_w(beta, alpha, l, argument)
-    return sop_R_term(op_T_left, J, op_T_right)
-
-def sop_R_term_beta_beta_LAB(l, q1, q2, beta1, beta2, beta2_spin_name1, beta2_spin_name2,
-                                 op_T_left, op_T_right):
-     """
-     Term in the relaxation superoperator between two two-spin interactions.
-     """
-     w1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
-     w2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
-     argument = q1*w1 + q2*w2
-     J = J_w(beta1, beta2, l, argument)
-     return (sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit())
-
-# Rotating frame:
-def sop_R_term_alpha_alpha_ROT(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_name,
-                               op_T_left, op_T_right):
-    """
-    Term in the relaxation superoperator between two single-spin interactions in the rotating frame.
     """
     w2 = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
     argument = q*w2
     J = J_w(alpha1, alpha2, l, argument)
 
-    w1 = smp.Symbol(f'\\omega_{{{alpha1_spin_name}}}', real=True)
-    w = -w1 + w2
-    exp = smp.exp(smp.I*q*w*t)
-    if settings.SECULAR:
-        if w != 0:
-            exp = 0
+    # NOTE: New! Combine functions for laboratory and rotating frames.
+    if settings.FRAME == 'lab':
+        return sop_R_term(op_T_left, J, op_T_right)
+    
+    elif settings.FRAME == 'rot':
+        w1 = smp.Symbol(f'\\omega_{{{alpha1_spin_name}}}', real=True)
+        w = -w1 + w2
+        exp = smp.exp(smp.I*q*w*t)
 
-    return sop_R_term(op_T_left, J, op_T_right) * exp
+        if settings.SECULAR:
+            if w != 0:
+                exp = 0
 
-def sop_R_term_alpha_beta_ROT(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_name1, beta_spin_name2,
-                                op_T_left, op_T_right):
+        return sop_R_term(op_T_left, J, op_T_right) * exp
+
+# def sop_R_term_alpha_beta_ROT(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_name1, beta_spin_name2,
+#                                 op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction in the rotating frame.
+#     """
+def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_name1, beta_spin_name2,
+                            op_T_left, op_T_right):
     """
-    Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction in the rotating frame.
+    Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction.
     """
     w_d1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
     w_d2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
     argument = q1*w_d1 + q2*w_d2
     J = J_w(alpha, beta, l, argument)
 
-    w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
-    w = -(q1+q2)*w_s + q1*w_d1 + q2*w_d2
-    exp = smp.exp(smp.I*w*t)
-    if settings.SECULAR:
-        if w != 0:
-            exp = 0
+    # NOTE: New! Combine functions for laboratory and rotating frames.
+    if settings.FRAME == 'lab':
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
+    
+    elif settings.FRAME == 'rot':
+        w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
+        w = -(q1+q2)*w_s + q1*w_d1 + q2*w_d2
+        exp = smp.exp(smp.I*w*t)
 
-    return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit() * exp
+        if settings.SECULAR:
+            if w != 0:
+                exp = 0
 
-def sop_R_term_beta_alpha_ROT(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_name2, alpha_spin_name,
-                                op_T_left, op_T_right):
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit() * exp
+
+# def sop_R_term_beta_alpha_ROT(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_name2, alpha_spin_name,
+#                                 op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction in the rotating frame.
+#     """
+def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_name2, alpha_spin_name,
+                            op_T_left, op_T_right):
     """
-    Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction in the rotating frame.
+    Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction.
     """
     w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
     argument = (q1+q2)*w_s
     J = J_w(beta, alpha, l, argument)
 
-    w_d1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
-    w_d2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
-    w = -q1*w_d1 - q2*w_d2 + (q1+q2)*w_s
-    exp = smp.exp(smp.I*w*t)
-    if settings.SECULAR:
-        if w != 0:
-            exp = 0
+    # NOTE: New! Combine functions for laboratory and rotating frames.
+    if settings.FRAME == 'lab':
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
+    
+    elif settings.FRAME == 'rot':
+        w_d1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
+        w_d2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
+        w = -q1*w_d1 - q2*w_d2 + (q1+q2)*w_s
+        exp = smp.exp(smp.I*w*t)
 
-    return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit() * exp
+        if settings.SECULAR:
+            if w != 0:
+                exp = 0
 
-def sop_R_term_beta_beta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, beta1, beta2, beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
-                                op_T_left, op_T_right):
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit() * exp
+
+# def sop_R_term_beta_beta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, beta1, beta2, beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
+#                                 op_T_left, op_T_right):
+#     """
+#     Term in the relaxation superoperator between two two-spin interactions in the rotating frame.
+#     """
+def sop_R_term_beta_beta(l, q1_d1, q2_d1, q1_d2, q2_d2, beta1, beta2, beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
+                            op_T_left, op_T_right):
     """
-    Term in the relaxation superoperator between two two-spin interactions in the rotating frame.
+    Term in the relaxation superoperator between two two-spin interactions.
     """
     w_d1_1 = smp.Symbol(f'\\omega_{{{beta1_spin_name1}}}', real=True)
     w_d1_2 = smp.Symbol(f'\\omega_{{{beta1_spin_name2}}}', real=True)
     argument = q1_d1*w_d1_1 + q2_d1*w_d1_2
     J = J_w(beta1, beta2, l, argument)
 
-    w_d2_1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
-    w_d2_2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
-    w = -q1_d1*w_d1_1 - q2_d1*w_d1_2 + q1_d2*w_d2_1 + q2_d2*w_d2_2
-    exp = smp.exp(smp.I*w*t)
-    if settings.SECULAR:
-        if w != 0:
-            exp = 0
+    # NOTE: New! Combine functions for laboratory and rotating frames.
+    if settings.FRAME == 'lab':
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_d1, 1, q2_d1, l, (q1_d1+q2_d1)).doit() * CG(1, q1_d2, 1, q2_d2, l, (q1_d2+q2_d2)).doit()
+    
+    elif settings.FRAME == 'rot':
+        w_d2_1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
+        w_d2_2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
+        w = -q1_d1*w_d1_1 - q2_d1*w_d1_2 + q1_d2*w_d2_1 + q2_d2*w_d2_2
+        exp = smp.exp(smp.I*w*t)
 
-    return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_d1, 1, q2_d1, l, (q1_d1+q2_d1)).doit() * CG(1, q1_d2, 1, q2_d2, l, (q1_d2+q2_d2)).doit() * exp
+        if settings.SECULAR:
+            if w != 0:
+                exp = 0
+
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_d1, 1, q2_d1, l, (q1_d1+q2_d1)).doit() * CG(1, q1_d2, 1, q2_d2, l, (q1_d2+q2_d2)).doit() * exp
 
 def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
     """
@@ -1426,10 +1471,13 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
                                             T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], SpinOperators.T[spin_2_index], l, q)
 
                                         # Compute the relaxation superoperator term
-                                        if settings.FRAME == 'lab':
-                                            R_term = sop_R_term_alpha_alpha_LAB(l, q, intr_name1, intr_name2, spin_2_name, T_left, T_right)
-                                        elif settings.FRAME == 'rot':
-                                            R_term = sop_R_term_alpha_alpha_ROT(l, q, intr_name1, intr_name2, spin_1_name, spin_2_name, T_left, T_right)
+                                        # if settings.FRAME == 'lab':
+                                        #     R_term = sop_R_term_alpha_alpha_LAB(l, q, intr_name1, intr_name2, spin_2_name, T_left, T_right)
+                                        # elif settings.FRAME == 'rot':
+                                        #     R_term = sop_R_term_alpha_alpha_ROT(l, q, intr_name1, intr_name2, spin_1_name, spin_2_name, T_left, T_right)
+                                        
+                                        # NOTE: New! Combine functions for laboratory and rotating frames.
+                                        R_term = sop_R_term_alpha_alpha(l, q, intr_name1, intr_name2, spin_1_name, spin_2_name, T_left, T_right)
 
                                         # Add the relaxation superoperator term to the relaxation superoperator
                                         R_final += R_term
@@ -1481,10 +1529,13 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
                                                 T_right_j = SpinOperators.T[spin_2_index_j]
                                                 T_right = T_right_i[1, q1] @ T_right_j[1, q2]
 
-                                                if settings.FRAME == 'lab':
-                                                    R_term = sop_R_term_alpha_beta_LAB(l, q1, q2, intr_name1, intr_name2, spin_2_name_i, spin_2_name_j, T_left, T_right)
-                                                elif settings.FRAME == 'rot':
-                                                    R_term = sop_R_term_alpha_beta_ROT(l, q1, q2, intr_name1, intr_name2, spin_1_name, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                # if settings.FRAME == 'lab':
+                                                #     R_term = sop_R_term_alpha_beta_LAB(l, q1, q2, intr_name1, intr_name2, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                # elif settings.FRAME == 'rot':
+                                                #     R_term = sop_R_term_alpha_beta_ROT(l, q1, q2, intr_name1, intr_name2, spin_1_name, spin_2_name_i, spin_2_name_j, T_left, T_right)
+
+                                                # NOTE: New! Combine functions for laboratory and rotating frames.
+                                                R_term = sop_R_term_alpha_beta(l, q1, q2, intr_name1, intr_name2, spin_1_name, spin_2_name_i, spin_2_name_j, T_left, T_right)
 
                                                 R_final += R_term
 
@@ -1517,37 +1568,40 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
 
                                 for l in ls:
 
-                                    # Different cases for laboratory and rotating frame
-                                    if settings.FRAME == 'lab':                                        
-                                        for q in range(-1, 2):
+                                    # # Different cases for laboratory and rotating frame
+                                    # if settings.FRAME == 'lab':                                        
+                                    #     for q in range(-1, 2):
                                             
-                                            T_left = op_T_coupled_lq(SpinOperators.T[spin_1_index_i], SpinOperators.T[spin_1_index_j], l, q)
+                                    #         T_left = op_T_coupled_lq(SpinOperators.T[spin_1_index_i], SpinOperators.T[spin_1_index_j], l, q)
 
-                                            if properties2[0][1] == 'L':
-                                                T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], T_vector, l, q)
-                                            elif properties2[0][1] == 'Q':
-                                                T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], SpinOperators.T[spin_2_index], l, q)
+                                    #         if properties2[0][1] == 'L':
+                                    #             T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], T_vector, l, q)
+                                    #         elif properties2[0][1] == 'Q':
+                                    #             T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], SpinOperators.T[spin_2_index], l, q)
 
-                                            R_term = sop_R_term_beta_alpha_LAB(l, q, intr_name1, intr_name2, spin_2_name, T_left, T_right)
-                                            R_final += R_term
+                                    #         R_term = sop_R_term_beta_alpha_LAB(l, q, intr_name1, intr_name2, spin_2_name, T_left, T_right)
+                                    #         R_final += R_term
 
-                                    elif settings.FRAME == 'rot':
-                                        for q1 in range(-1, 2):
-                                            for q2 in range(-1, 2):
+                                    # elif settings.FRAME == 'rot':
 
-                                                if np.abs(q1 + q2) <= l:
-                                                
-                                                    T_left_i = SpinOperators.T[spin_1_index_i]
-                                                    T_left_j = SpinOperators.T[spin_1_index_j]
-                                                    T_left = T_left_i[1, q1] @ T_left_j[1, q2]
+                                    # NOTE: New! Combine functions for laboratory and rotating frames.
+                                    for q1 in range(-1, 2):
+                                        for q2 in range(-1, 2):
 
-                                                    if properties2[0][1] == 'L':
-                                                        T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], T_vector, l, (q1 + q2))
-                                                    elif properties2[0][1] == 'Q':
-                                                        T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], SpinOperators.T[spin_2_index], l, (q1 + q2))
+                                            if np.abs(q1 + q2) <= l:
+                                            
+                                                T_left_i = SpinOperators.T[spin_1_index_i]
+                                                T_left_j = SpinOperators.T[spin_1_index_j]
+                                                T_left = T_left_i[1, q1] @ T_left_j[1, q2]
 
-                                                    R_term = sop_R_term_beta_alpha_ROT(l, q1, q2, intr_name1, intr_name2, spin_1_name_i, spin_1_name_j, spin_2_name, T_left, T_right)
-                                                    R_final += R_term
+                                                if properties2[0][1] == 'L':
+                                                    T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], T_vector, l, (q1 + q2))
+                                                elif properties2[0][1] == 'Q':
+                                                    T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], SpinOperators.T[spin_2_index], l, (q1 + q2))
+
+                                                # R_term = sop_R_term_beta_alpha_ROT(l, q1, q2, intr_name1, intr_name2, spin_1_name_i, spin_1_name_j, spin_2_name, T_left, T_right)
+                                                R_term = sop_R_term_beta_alpha(l, q1, q2, intr_name1, intr_name2, spin_1_name_i, spin_1_name_j, spin_2_name, T_left, T_right)
+                                                R_final += R_term
 
             # Double-spin two-spin mechanism pair
             elif properties1[0][0] == '2' and properties2[0][0] == '2':
@@ -1579,43 +1633,47 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
 
                                 for l in ls:
                                     
-                                    if settings.FRAME == 'lab':
-                                        for q1 in range(-1, 2):
-                                            for q2 in range(-1, 2):
+                                    # if settings.FRAME == 'lab':
+                                    #     for q1 in range(-1, 2):
+                                    #         for q2 in range(-1, 2):
 
-                                                if np.abs(q1 + q2) <= l:
+                                    #             if np.abs(q1 + q2) <= l:
 
-                                                    T_left_i = SpinOperators.T[spin_1_index_i]
-                                                    T_left_j = SpinOperators.T[spin_1_index_j]
-                                                    T_left = T_left_i[1, q1] @ T_left_j[1, q2]
+                                    #                 T_left_i = SpinOperators.T[spin_1_index_i]
+                                    #                 T_left_j = SpinOperators.T[spin_1_index_j]
+                                    #                 T_left = T_left_i[1, q1] @ T_left_j[1, q2]
 
-                                                    T_right_i = SpinOperators.T[spin_2_index_i]
-                                                    T_right_j = SpinOperators.T[spin_2_index_j]
-                                                    T_right = T_right_i[1, q1] @ T_right_j[1, q2]
+                                    #                 T_right_i = SpinOperators.T[spin_2_index_i]
+                                    #                 T_right_j = SpinOperators.T[spin_2_index_j]
+                                    #                 T_right = T_right_i[1, q1] @ T_right_j[1, q2]
 
-                                                    R_term = sop_R_term_beta_beta_LAB(l, q1, q2, intr_name1, intr_name2, spin_2_name_i, spin_2_name_j, T_left, T_right)
-                                                    R_final += R_term
+                                    #                 R_term = sop_R_term_beta_beta_LAB(l, q1, q2, intr_name1, intr_name2, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                    #                 R_final += R_term
 
-                                    elif settings.FRAME == 'rot':
-                                        for q1_d1 in range(-1, 2):
-                                            for q2_d1 in range(-1, 2):
-                                                for q1_d2 in range(-1, 2):
-                                                    for q2_d2 in range(-1, 2):
+                                    # elif settings.FRAME == 'rot':
 
-                                                        # Clebsch-Gordan restriction
-                                                        if np.abs(q1_d1 + q2_d1) <= l and (q1_d1 + q2_d1) == (q1_d2 + q2_d2):
+                                    # NOTE: New! Combine functions for laboratory and rotating frames.
+                                    for q1_d1 in range(-1, 2):
+                                        for q2_d1 in range(-1, 2):
+                                            for q1_d2 in range(-1, 2):
+                                                for q2_d2 in range(-1, 2):
 
-                                                            T_left_i = SpinOperators.T[spin_1_index_i]
-                                                            T_left_j = SpinOperators.T[spin_1_index_j]
-                                                            T_left = T_left_i[1, q1_d1] @ T_left_j[1, q2_d1]
+                                                    # Clebsch-Gordan restriction
+                                                    if np.abs(q1_d1 + q2_d1) <= l and (q1_d1 + q2_d1) == (q1_d2 + q2_d2):
 
-                                                            T_right_i = SpinOperators.T[spin_2_index_i]
-                                                            T_right_j = SpinOperators.T[spin_2_index_j]
-                                                            T_right = T_right_i[1, q1_d2] @ T_right_j[1, q2_d2]
+                                                        T_left_i = SpinOperators.T[spin_1_index_i]
+                                                        T_left_j = SpinOperators.T[spin_1_index_j]
+                                                        T_left = T_left_i[1, q1_d1] @ T_left_j[1, q2_d1]
 
-                                                            R_term = sop_R_term_beta_beta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
-                                                                          spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
-                                                            R_final += R_term
+                                                        T_right_i = SpinOperators.T[spin_2_index_i]
+                                                        T_right_j = SpinOperators.T[spin_2_index_j]
+                                                        T_right = T_right_i[1, q1_d2] @ T_right_j[1, q2_d2]
+
+                                                        # R_term = sop_R_term_beta_beta_ROT(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
+                                                        #                 spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                        R_term = sop_R_term_beta_beta(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
+                                                                        spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                        R_final += R_term
       
             else:
                 raise ValueError('Invalid interaction dictionary. See README.md for details.')
@@ -1646,7 +1704,7 @@ class RelaxationSuperoperator(Superoperator):
         Relaxation rate between two basis operators.
 
         Input:
-            - spin_index_lqs_1: String of the first spin index and lq values (see find_T_symbol_index).
+            - spin_index_lqs_1: String of the first spin index and lq values (see T_symbol_list_index).
             - spin_index_lqs_2: String of the second spin index and lq values. If None, it is the same as spin_index_lqs_1.
 
         Returns:
@@ -1654,8 +1712,8 @@ class RelaxationSuperoperator(Superoperator):
         """
         if spin_index_lqs_2 is None:
             spin_index_lqs_2 = spin_index_lqs_1
-        index_1 = find_T_symbol_index(self.basis_symbols, spin_index_lqs_1)
-        index_2 = find_T_symbol_index(self.basis_symbols, spin_index_lqs_2)
+        index_1 = T_symbol_list_index(self.basis_symbols, spin_index_lqs_1)
+        index_2 = T_symbol_list_index(self.basis_symbols, spin_index_lqs_2)
         try:
             return self.op[index_1, index_2]
         except IndexError:
