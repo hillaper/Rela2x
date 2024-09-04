@@ -1,5 +1,5 @@
 """
-General settings for the Rela2x package.
+General settings for Rela2x.
 """
 
 # Level of theory for the relaxation superoperator.
