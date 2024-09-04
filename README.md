@@ -4,13 +4,13 @@
 
 Rela²x is a freely available Python package that offers a collection of functions and classes for analytic and automatic high-field liquid-state NMR relaxation theory.
 
-The package provides tools to compute, approximate, and analyze the Liouville-space matrix representation of the relaxation superoperator, R, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between interactions. Approximations, simplifications for the analysis of R, and visualization tools are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
+The package provides tools to compute, approximate, and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between interactions. Approximations, simplifications for the analysis of *R*, and visualization tools are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
 
 ## Notes
 
-Before using Rela²x, it is recommended that you read the related publication []. (In the publication, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so R is used here and in the code.)
+Before using Rela²x, it is recommended that you read the related publication []. (In the publication, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code.)
 
-Basic knowledge of Python is assumed. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
+Only basic knowledge of Python is assumed. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
 
 For detailed information on the functions and classes of Rela²x, refer to the documentation directly in `rela2x.py`.
 
@@ -100,9 +100,12 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    
    ```python
    intrs = {
-       'CSA': ('SL', [1, 0, 0], [0, 1, 2]),
-       'Q': ('SQ', [1, 0, 0], [2]),
-       'DD': ('D', [[0, 1, 1], [0, 0, 1], [0, 0, 0]], [2])
+       'CSA': ('1L', [1, 0, 0], [0, 1, 2]),
+       'Q':   ('1Q', [1, 0, 0], [2]),
+       'DD':  ('2', [[0, 1, 1],
+                     [0, 0, 1], 
+                     [0, 0, 0]], 
+                     [2])
    }
    ```
    
@@ -141,7 +144,9 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    The best way to get acquainted is to try these functions yourself!
    
-**After *R* is computed, construct the resulting relaxation equations of motion for the observables. Different functions are used depending on `RELAXATION_THEORY`, as the semiclassical and Lindbladian master equations are different:**
+**After *R* is computed, construct the resulting relaxation equations of motion for the observables:**
+
+   Different functions are used depending on `RELAXATION_THEORY`, as the semiclassical and Lindbladian master equations are different.
 
    ```python
    eoms = ime_equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)
@@ -162,10 +167,8 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    ```python
    equations_of_motion_to_latex(eoms, savename)
    ```
-   
-   `savename` is
-   
-   an arbitrary string.
+
+   `savename` is an arbitrary string.
 
 ## Examples
 
@@ -173,7 +176,7 @@ Three example notebooks that showcase the usage of Rela²x are included in the r
 
 ## Warnings
 
-Rela²x is not designed for spin systems where the dimension of *R* exceeds 100, and should be used with caution in such cases. Specifically, displaying the entire operator matrix may cause Jupyter Notebook to crash. Larger systems can still be computed, and the `rate` function can be useful in these scenarios.
+Rela²x is not designed for spin systems where the dimension of *R* exceeds ~150, and should be used with caution in such cases. Specifically, displaying the entire matrix `R.op` may cause Jupyter Notebook to crash. Larger systems can still be computed, and the `rate` function can be useful in these scenarios.
 
 ## Advanced Users
 
@@ -194,5 +197,7 @@ If you have questions, comments, or suggestions, please feel free to reach out:
 Email: perttu.hilla@oulu.fi
 
 ## Citations
+
+If you use Rela²x in your research, please include the following citation:
 
 - Hilla, Vaara.
