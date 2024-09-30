@@ -12,4 +12,5 @@ FRAME = 'rot'
 
 # Secular approximation.
 # True for secular approximation, False for no secular approximation.
+# NOTE: Secular approximation appears only in the rotating frame.
 SECULAR = True

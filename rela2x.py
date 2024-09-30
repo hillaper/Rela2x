@@ -64,7 +64,7 @@ def set_secular(Boolean):
         NOTE: Default is True.
     """
     if not isinstance(Boolean, bool):
-        raise ValueError("Secular approximation has to be a boolean value.")
+        raise ValueError("Secular approximation has to be a boolean value. Choose True for secular approximation or False for no secular approximation.")
     settings.SECULAR = Boolean
 
 ####################################################################################################
@@ -236,12 +236,13 @@ def T_symbol_list_index(T_symbols, spin_index_lqs):
     print(f'No match found from the given symbols for {spin_index_lqs}.')
     return None
 
+# String hashing
+def string_to_number(string):
+    return int(hashlib.sha256(string.encode('utf-8')).hexdigest(), 16)
+
 # Convenience function
 def sort_interactions(intr1, intr2):
     """Sort an interaction pair. Used for cosmetic purposes."""
-    def string_to_number(string):
-        return int(hashlib.sha256(string.encode('utf-8')).hexdigest(), 16)
-
     if str(intr1) == str(intr2):
         return str(intr1)
     else:
@@ -259,17 +260,19 @@ def pick_from_matrix(matrix, kept_indices):
 
 def cut_list(lst, removed_indices):
     """Cut a list to a smaller size."""
-    lst_loc = lst.copy()
-    for index in sorted(removed_indices, reverse=True):
-        lst_loc.pop(index)
-    return lst_loc
+    return [item for i, item in enumerate(lst) if i not in removed_indices]
 
 def cut_matrix(matrix, removed_indices):
     """Cut a matrix to a smaller size."""
-    for index in sorted(removed_indices, reverse=True):
-        matrix.row_del(index)
-        matrix.col_del(index)
-    return matrix
+    # Remove rows
+    rows_to_keep = [i for i in range(matrix.rows) if i not in removed_indices]
+    matrix_loc = matrix[rows_to_keep, :]
+    
+    # Remove columns
+    cols_to_keep = [i for i in range(matrix.cols) if i not in removed_indices]
+    matrix_loc = matrix_loc[:, cols_to_keep]
+    
+    return matrix_loc
 
 # Filter functions based on allowed coherences, spin orders and types
 # NOTE: General input and return structure defined in coherence_order_filter.
@@ -309,6 +312,7 @@ def type_filter(operator, basis_state_symbols, allowed_type):
 
     Input:
         - allowed_type: Allowed type, 0 for population, 1 for coherence.
+        NOTE: This is not a list, but a single integer.
     """
     basis_types = [T_symbol_type(T_symbol) for T_symbol in basis_state_symbols]
     indexes_to_delete = [i for i, type in enumerate(basis_types) if type != allowed_type]
@@ -320,6 +324,7 @@ def list_indexes(lst):
     """Return the indexes of a list."""
     return list(range(len(lst)))
 
+# Combinatorics
 def all_combinations(N, *args, reverse=False):
     """Generate all combinations of N lists. Used for spherical tensor operator product basis generation."""
     list_combinations = list(itertools.combinations(args, N))
@@ -363,7 +368,13 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
         _, ax = plt.subplots(figsize=(4, 4), dpi=150)
     else:
         _, ax = plt.subplots(figsize=(6, 6), dpi=150)
-    ax.imshow(operator_nonzeros, cmap='Blues', alpha=0.9)
+
+    # Create color map for the nonzeros
+    norm = plt.Normalize(0, np.amax(operator_nonzeros))
+    cmap = plt.cm.Blues
+
+    # Plot the nonzeros
+    ax.imshow(operator_nonzeros, cmap=cmap, alpha=0.9, norm=norm)
 
     # Shift the grid
     ax.set_xticks(np.arange(-.5, operator_nonzeros.shape[1], 1), minor=True)
@@ -375,6 +386,7 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     ax.xaxis.tick_top()
 
     # Set major ticks to start from 1
+    # Include only every second or fourth tick if the matrix is large
     if operator_nonzeros.shape[0] <= 16:
         ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
         ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
@@ -432,7 +444,13 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
         _, ax = plt.subplots(figsize=(4, 4), dpi=150)
     else:
         _, ax = plt.subplots(figsize=(6, 6), dpi=150)
-    ax.imshow(operator_nonzeros, cmap='Blues', alpha=0.9)
+
+    # Create color map for the nonzeros
+    norm = plt.Normalize(0, np.amax(operator_nonzeros))
+    cmap = plt.cm.Blues
+
+    # Plot the nonzeros
+    ax.imshow(operator_nonzeros, cmap=cmap, alpha=0.9, norm=norm)
 
     # Shift the grid
     ax.set_xticks(np.arange(-.5, operator_nonzeros.shape[1], 1), minor=True)
@@ -444,6 +462,7 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
     ax.xaxis.tick_top()
 
     # Set major ticks to start from 1
+    # Include only every second or fourth tick if the matrix is large
     if operator_nonzeros.shape[0] <= 16:
         ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
         ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
@@ -622,7 +641,7 @@ def op_T(S, l, q):
         return T_ll.applyfunc(smp.simplify)
 
 # Coupling of spherical tensor operators.
-# NOTE: Used for rank 2 contributions in the relaxation superoperator.
+# NOTE: Used for bilinear contributions in the relaxation superoperator.
 def op_T_coupled_lq(T1_dict, T2_dict, l, q):
     """
     Coupled spherical tensor operator of rank l and projection q from two spherical tensors of rank 1.
@@ -768,7 +787,7 @@ def T_product_basis(SpinOperators):
     N_spins = SpinOperators.N_spins
     T = SpinOperators.T
 
-    # Combinatorics...
+    # Combinatorics
     ops = [[T[i][(l, q)] for l in range(int(2*S[i])+1) for q in range(-l, l+1)] for i in range(N_spins)]
     op_indexes = [list_indexes(ops[i]) for i in range(N_spins)]
     op_indexes = all_combinations(N_spins, *op_indexes, reverse=True)
@@ -785,9 +804,12 @@ def T_product_basis(SpinOperators):
                 T_product = T_product @ ops[i][j]
         T_product_basis.append(T_product)
 
+    # Norms of the basis operators. Used for normalization and later for basis to observables conversion.
+    norms = [Lv_norm(T_product_basis[i]) for i in range(len(T_product_basis))]
+
     # Normalize the basis
-    T_product_basis = [T_product_basis[i] / Lv_norm(T_product_basis[i]) for i in range(len(T_product_basis))]
-    return T_product_basis
+    T_product_basis = [T_product_basis[i] / norms[i] for i in range(len(T_product_basis))]
+    return T_product_basis, norms
 
 def T_product_basis_symbols(SpinOperators):
     """
@@ -804,7 +826,7 @@ def T_product_basis_symbols(SpinOperators):
     N_spins = SpinOperators.N_spins
     T_symbol = SpinOperators.T_symbol
 
-    # Combinatorics...
+    # Combinatorics
     symbols = [[T_symbol[i][(l, q)] for l in range(int(2*S[i])+1) for q in range(-l, l+1)] for i in range(N_spins)]
     symbol_indexes = [list_indexes(symbols[i]) for i in range(N_spins)]
     symbol_indexes = all_combinations(N_spins, *symbol_indexes, reverse=True)
@@ -829,65 +851,71 @@ def T_product_basis_symbols(SpinOperators):
 
 # Basis set sorting
 # NOTE: There are multiple ways to do the sorting, and it is fairly arbitrary. These are just two possibilities.
-def T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols):
+def T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
     Split a basis of spherical tensor operators to groups of same coherence order.
     
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+        - T_product_basis_norms: Norms of the basis operators
 
     Returns:
         - T_basis_groups: Dictionary of groups of same coherence order (key = coherence order, value = list of matrices)
         - T_symbol_groups: Dictionary of groups of same coherence order (key = coherence order, value = list of symbols)
+        - T_norm_groups: Dictionary of groups of same coherence order (key = coherence order, value = list of norms)
     """
     coherence_orders = [T_symbol_coherence_order(T_symbol) for T_symbol in T_product_basis_symbols]
     T_basis_groups = {}
     T_symbol_groups = {}
+    T_norm_groups = {}
 
     for i, coherence_order in enumerate(coherence_orders):
         if coherence_order in T_basis_groups:
             T_basis_groups[coherence_order].append(T_product_basis[i])
             T_symbol_groups[coherence_order].append(T_product_basis_symbols[i])
+            T_norm_groups[coherence_order].append(T_product_basis_norms[i])
         else:
             T_basis_groups[coherence_order] = [T_product_basis[i]]
             T_symbol_groups[coherence_order] = [T_product_basis_symbols[i]]
+            T_norm_groups[coherence_order] = [T_product_basis_norms[i]]
 
-    return T_basis_groups, T_symbol_groups
+    return T_basis_groups, T_symbol_groups, T_norm_groups
 
 # NOTE: Functions below have the same input and return structure as spin_order_sort_T_product_basis.
-def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
+def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
     Sort the product basis of spherical tensor operators by spin order.
     
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+        - T_product_basis_norms: Norms of the basis operators
 
     Returns:
-        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols)
+        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols, sorted_T_product_basis_norms)
     """
     spin_orders = [T_symbol_spin_order(op) for op in T_product_basis_symbols]
     sorting = np.argsort(spin_orders)
-    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting]
+    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting], [T_product_basis_norms[i] for i in sorting]
 
-def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
+def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
     Sort the product basis of spherical tensor operators by coherence order.
     """
     coherence_orders = [T_symbol_coherence_order(op) for op in T_product_basis_symbols]
     sorting = np.lexsort((coherence_orders, np.abs(coherence_orders)))
-    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting]
+    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting], [T_product_basis_norms[i] for i in sorting]
 
-def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
+def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
     Sort the product basis of spherical tensor operators by type.
     """
     types = [T_symbol_type(op) for op in T_product_basis_symbols]
     sorting = np.argsort(types)
-    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting]
+    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting], [T_product_basis_norms[i] for i in sorting]
 
-def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, spin_index):
+def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, spin_index):
     """
     Sort the product basis of spherical tensor operators by projection (q) of the operator
     acting on the specified spin.
@@ -895,36 +923,40 @@ def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, sp
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+        - T_product_basis_norms: Norms of the basis operators
         - spin_index: Spin index for the projection sorting.
 
     Returns:
-        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols)
+        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols, sorted_T_product_basis_norms)
     """
     T_product_basis_NEW = []
     T_product_basis_symbols_NEW = []
+    T_product_basis_norms_NEW = []
 
-    T_product_basis_coherence_orders, T_product_basis_coherence_order_symbols\
-        = T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols)
+    T_product_basis_coherence_orders, T_product_basis_coherence_order_symbols, T_product_basis_coherence_order_norms\
+        = T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
 
     for coherence_order, T_symbols in T_product_basis_coherence_order_symbols.items():
         projections = [T_symbol_Nth_spin_projection(T_symbol, spin_index) for T_symbol in T_symbols]
         sorting = np.argsort(projections)
         T_product_basis_NEW += [T_product_basis_coherence_orders[coherence_order][i] for i in sorting]
         T_product_basis_symbols_NEW += [T_product_basis_coherence_order_symbols[coherence_order][i] for i in sorting]
+        T_product_basis_norms_NEW += [T_product_basis_coherence_order_norms[coherence_order][i] for i in sorting]
 
-    return T_product_basis_NEW, T_product_basis_symbols_NEW
+    return T_product_basis_NEW, T_product_basis_symbols_NEW, T_product_basis_norms_NEW
 
-def identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols):
+def identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
     Move the identity operator to the first position in the product basis.
     """
     identity_index = [i for i, T_symbol in enumerate(T_product_basis_symbols) if '{E}' in str(T_symbol)][0]
     T_product_basis_NEW = [T_product_basis[identity_index]] + T_product_basis[:identity_index] + T_product_basis[identity_index+1:]
     T_product_basis_symbols_NEW = [T_product_basis_symbols[identity_index]] + T_product_basis_symbols[:identity_index] + T_product_basis_symbols[identity_index+1:]
-    return T_product_basis_NEW, T_product_basis_symbols_NEW
+    T_product_basis_norms_NEW = [T_product_basis_norms[identity_index]] + T_product_basis_norms[:identity_index] + T_product_basis_norms[identity_index+1:]
+    return T_product_basis_NEW, T_product_basis_symbols_NEW, T_product_basis_norms_NEW
 
 # Quick sorting that combines the functions above.
-def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, sorting='v1'):
+def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, sorting='v1'):
     """
     Fully sort the product basis of spherical tensor operators.
 
@@ -934,24 +966,25 @@ def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, sorting=
     Input:
         - T_product_basis: Basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Basis of spherical tensor operator symbols (list of SymPy symbols)
+        - T_product_basis_norms: Norms of the basis operators
         - sorting: Sorting version ('v1' or 'v2').
 
     Returns:
-        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols)
+        - tuple of the form (sorted_T_product_basis, sorted_T_product_basis_symbols, sorted_T_product_basis_norms)
     """
     if sorting == 'v1':
-        T_product_basis, T_product_basis_symbols = type_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
-        T_product_basis, T_product_basis_symbols = spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
-        T_product_basis, T_product_basis_symbols = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
 
     elif sorting == 'v2':
         # Loop over all spins and sort by projection
-        for i in range(1, 5): # NOTE: This will always suffice for up to 5 spins
-            T_product_basis, T_product_basis_symbols = projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, i)
-        T_product_basis, T_product_basis_symbols = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
-        T_product_basis, T_product_basis_symbols = identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols)
+        for i in range(1, 10): # NOTE: This will always suffice for up to 10 spins
+            T_product_basis, T_product_basis_symbols, T_product_basis_norms = projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, i)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
 
-    return T_product_basis, T_product_basis_symbols
+    return T_product_basis, T_product_basis_symbols, T_product_basis_norms
 
 def T_product_basis_and_symbols(SpinOperators, sorting='v1'):
     """
@@ -965,12 +998,12 @@ def T_product_basis_and_symbols(SpinOperators, sorting='v1'):
         - T_product_basis: Sorted basis of spherical tensor operators (list of matrices)
         - T_product_basis_symbols: Sorted basis of spherical tensor operator symbols (list of SymPy symbols)
     """
-    basis = T_product_basis(SpinOperators)
+    basis, norms = T_product_basis(SpinOperators)
     symbols = T_product_basis_symbols(SpinOperators)
     if sorting == None:
-        return basis, symbols
+        return basis, symbols, norms
     else:
-        return full_sort_T_product_basis(basis, symbols, sorting=sorting)
+        return full_sort_T_product_basis(basis, symbols, norms, sorting=sorting)
     
 ####################################################################################################
 # General operator classes.
@@ -1037,7 +1070,7 @@ class Operator:
         Substitute symbols and functions in self.op with numerical values.
         
         Input:
-            - substitutions_dict: Dictionary of substitutions of the form {symbol_str: value}.
+            - substitutions_dict: Dictionary of substitutions of the form {symbol: value}.
         
         NOTE: This can be useful for SymPy --> NumPy conversion.
         """
@@ -1081,7 +1114,7 @@ class Superoperator(Operator):
         basis_vectorized = vectorize_all(basis)
         print('\nChanging basis...')
         self.op = op_change_of_basis(self.op, basis_vectorized)
-        print('\nBasis changed.')
+        print('Basis changed.')
 
 ####################################################################################################
 # Spectral density functions and relaxation constants.
@@ -1142,7 +1175,7 @@ def J_w(intr1, intr2, l, argument):
         return expr
     elif settings.RELAXATION_THEORY == 'qm':
         return expr * Schofield_theta(argument)
-    
+
 def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
                                        fast_motion_limit=False, slow_motion_limit=False):
     """
@@ -1151,7 +1184,7 @@ def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
     Input:
         - intr1: String for the first interaction.
         - intr2: String for the second interaction.
-        - l: Rank of the spherical tensor operator.
+        - l: Rank of the spherical tensor operator (NOTE: applies only for l > 0).
         - argument: Argument of the spectral density function (combination of angular frequencies).
         - fast_motion_limit: Whether to use the fast motion limit where (w * tau_c) << 1. Default is False.
         - slow_motion_limit: Whether to use the slow motion limit where (w * tau_c) >> 1. Default is False.
@@ -1160,13 +1193,14 @@ def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
         - J(w) in the isotropic rotational diffusion model.
     """
     intr_sorted = sort_interactions(intr1, intr2)
+    tau_c_l = 6*tau_c / (l*(l+1))
 
     if isinstance(intr_sorted, str):
         G = smp.Function(f'G^{{{intr_sorted}}}_{{{l, 0}}}')(0)
     else:
         G = smp.Function(f'G^{{{intr_sorted[0]}, {intr_sorted[1]}}}_{{{l, 0}}}')(0)
 
-    J_w = 2*G * Lorentzian(argument, tau_c, fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
+    J_w = 2*G * Lorentzian(argument, tau_c_l, fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
 
     if settings.RELAXATION_THEORY == 'sc':
         return J_w
@@ -1217,10 +1251,8 @@ def sop_R_term(op_T_left, J_w, op_T_right):
         - Term in the relaxation superoperator.
     """
     if settings.RELAXATION_THEORY == 'sc':
-        # return smp.Rational(1, 2) * J_w * sop_double_commutator(op_T_left, op_T_right.H)
         return smp.Rational(1, 2) * J_w * sop_double_commutator(op_T_left.H, op_T_right)
     elif settings.RELAXATION_THEORY == 'qm':
-        # return -J_w * sop_D(op_T_left, op_T_right.H)
         return -J_w * sop_D(op_T_left.H, op_T_right)
     
 # NOTE: The functions below have the same in input and return structure as sop_R_term_alpha_alpha.
@@ -1242,13 +1274,16 @@ def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_n
     Returns:
         - Term in the relaxation superoperator.
     """
+    # Spectral density function with argument defined by the second interaction
     w2 = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
     argument = q*w2
     J = J_w(alpha1, alpha2, l, argument)
 
+    # Lab frame
     if settings.FRAME == 'lab':
         return sop_R_term(op_T_left, J, op_T_right)
     
+    # Rotating frame, including the secular approximation if desired
     elif settings.FRAME == 'rot':
         w1 = smp.Symbol(f'\\omega_{{{alpha1_spin_name}}}', real=True)
         w = -w1 + w2
@@ -1556,7 +1591,7 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
             else:
                 raise ValueError('Invalid interaction dictionary. See README.md for details.')
             
-    print('\nR computed.')
+    print('R computed.')
     return R_final
 
 ####################################################################################################
@@ -1573,9 +1608,22 @@ class RelaxationSuperoperator(Superoperator):
         - sop_R: Relaxation superoperator matrix representation.
         - basis_symbols: List of basis operator symbols.
     """
-    def __init__(self, sop_R, basis_symbols):
+    def __init__(self, sop_R, basis_symbols, basis_norms):
         Superoperator.__init__(self, sop_R)
         self.basis_symbols = basis_symbols
+        self.basis_norms = basis_norms
+
+    def to_observables(self):
+        """
+        Fix basis operator normalization in order to get the correct relaxation rates
+        and equations of motion of observables.
+        """
+        for i in range(self.op.shape[0]):
+            for j in range(self.op.shape[1]):
+                self.op[i, j] *= (self.basis_norms[i] / self.basis_norms[j])
+
+        # Simplify the relaxation superoperator
+        self.op = smp.simplify(self.op)
 
     def rate(self, spin_index_lqs_1, spin_index_lqs_2=None):
         """
@@ -1596,7 +1644,7 @@ class RelaxationSuperoperator(Superoperator):
             return self.op[index_1, index_2]
         except IndexError:
             print('Invalid basis operator indexes. Try changing the order of the operators in the product.')
-             
+
     def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
         """
         Set all J(w) functions in the relaxation superoperator to the isotropic rotational
@@ -1611,8 +1659,10 @@ class RelaxationSuperoperator(Superoperator):
         for J_w in J_w_functions:
             # See docstring for extract_J_w_arguments and J_w_iso_rot_diff
             intrs, lq, arg = extract_J_w_symbols_and_args(J_w)
-            subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg,
-                                fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
+            # Include only anisotropic rotationally modulated interactions (l > 0)
+            if lq[0] > 0:
+                subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg,
+                                    fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
         self.substitute(subst_dict)
 
     def neglect_cross_correlated_terms(self, mechanism1=None, mechanism2=None):
@@ -1688,20 +1738,24 @@ def ime_equations_of_motion(R, basis_op_symbols, expectation_values=True, includ
     Returns:
         - System of differential equations as SymPy equations.
     """
+    # Include only a subset of operators if desired
     if included_operators is not None:
         R = pick_from_matrix(R, included_operators)
         basis_op_symbols = pick_from_list(basis_op_symbols, included_operators)
 
+    # Compute the left-hand side of the differential equations
+    # Use expectation values if desired
     if expectation_values:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
     else:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(x, t))
     rhs = smp.Matrix([smp.Symbol(f'\\Delta {symbol}'.replace('*', '')) for symbol in basis_op_symbols])
 
+    # Compute the right-hand side of the differential equations
     if expectation_values:
         rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
 
-    rhs = R * rhs
+    rhs = -R * rhs
     return smp.Eq(lhs, rhs, evaluate=False)
 
 def lindblad_equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
@@ -1728,7 +1782,7 @@ def lindblad_equations_of_motion(R, basis_op_symbols, expectation_values=True, i
     if expectation_values:
         rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
 
-    rhs = R * rhs
+    rhs = -R * rhs
     return smp.Eq(lhs, rhs, evaluate=False)
 
 def equations_of_motion_to_latex(eqs, savename):
@@ -1755,7 +1809,7 @@ def equations_of_motion_to_latex(eqs, savename):
         file.write(diff_eqs)
 
 ####################################################################################################
-# Convenience functions.
+# Combined functions.
 ####################################################################################################
 def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
     """
@@ -1777,10 +1831,18 @@ def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
     R = sop_R(Sops, INCOHERENT_INTERACTIONS)
 
     # Compute the direct product basis of the spherical tensor operators
-    T_basis, T_symbols = T_product_basis_and_symbols(Sops, sorting=sorting)
+    T_basis, T_symbols, norms = T_product_basis_and_symbols(Sops, sorting=sorting)
 
     # Create the relaxation superoperator and convert to the product basis
-    R = RelaxationSuperoperator(R, T_symbols)
+    R = RelaxationSuperoperator(R, T_symbols, norms)
     R.to_basis(T_basis)
+
+    print('\nFinal clean-ups...')
+    # Convert the relaxation rates to correspond to observables
+    R.to_observables()
+
+    # Expand matrix elements to simplify the expressions
+    R.op = R.op.expand()
+    print('Done.')
 
     return R

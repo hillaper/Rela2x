@@ -1,5 +1,5 @@
 """
-Dictionary of NMR isotopes with their spin quantum numbers and gyromagnetic ratios in MHz/T.
+Dictionary of NMR isotopes with their spin quantum numbers (and gyromagnetic ratios in MHz/T).
 
 From: https://www.kherb.io/docs/nmr_table.html
 

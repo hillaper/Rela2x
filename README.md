@@ -1,16 +1,17 @@
 # ––––– Rela²x –––––
+# *A*nalytic and *A*utomatic NMR relaxation theory
 
 ## Description
 
 Rela²x is a freely available Python package that offers a collection of functions and classes for analytic and automatic high-field liquid-state NMR relaxation theory.
 
-The package provides tools to compute, approximate, and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between interactions. Approximations, simplifications for the analysis of *R*, and visualization tools are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
+The package provides tools to compute and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between the interactions. Approximations, simplifications for the analysis of *R*, and visualization tools are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
 
 ## Notes
 
-Before using Rela²x, it is recommended that you read the related publication []. (In the publication, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code.)
+Before using Rela²x, it is recommended that you read the related publication []. (There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code.)
 
-Only basic knowledge of Python is assumed. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
+Only basic knowledge of Python is required. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
 
 For detailed information on the functions and classes of Rela²x, refer to the documentation directly in `rela2x.py`.
 
@@ -30,7 +31,7 @@ To install and run Rela²x:
 - matplotlib
 - sympy
 
-These necessary packages are listed in the requirements.txt file. Rela²x is designed to be an interactive program, so an installation of 
+These necessary packages are listed in the `requirements.txt` file. Rela²x is designed to be an interactive program, so an installation of 
 
 - Jupyter Notebook
 
@@ -66,13 +67,13 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    - `FRAME` determines whether *R* is computed in the rotating `'rot'` or laboratory `'lab'` frame.
    - `SECULAR` is used to turn the secular approximation on `'True'` or off `'False'`. This affects calculations only in the rotating frame.
    
-   So, the possible values (default) are:
+   So, the possible values are:
    
-   - `RELAXATION_THEORY = ('sc')` or `'qm'`
-   - `FRAME = ('rot')` or `'lab'`
-   - `SECULAR = (True)` or `False`
+   - `RELAXATION_THEORY = 'sc'` or `'qm'`
+   - `FRAME = 'rot'` or `'lab'`
+   - `SECULAR = True` or `False`,
    
-   The easiest way to access these settings is through the `set_relaxation_theory`, `set_frame`, and `set_secular` functions. For instance:
+   where the default value is the first one. The easiest way to access these settings is through the `set_relaxation_theory`, `set_frame`, and `set_secular` functions. For instance:
    
    ```python
    set_relaxation_theory('qm')
@@ -109,7 +110,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    }
    ```
    
-**Compute the matrix representation of *R*, convert it to a suitable product operator basis, and create a `RelaxationSuperoperator` object:**
+**Compute the matrix representation of *R*, convert it to the product operator basis of spherical tensor operators, and create a `RelaxationSuperoperator` object:**
 
    It is useful to represent *R* in a basis where it achieves a block-diagonal form. The best basis for this purpose is the direct product basis of spherical tensor operators. This is automatically done by calling:
    
@@ -162,7 +163,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    Here, `R.op` is the matrix representation of *R*, `R.basis_symbols` is the list of basis operator symbols, and the rest are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object. 
    
-**The equations of motion can be automatically saved in LaTeX format to the current working directory as a .txt file for further use in, for example, publications:**
+**Save the equations of motion in LaTeX format to the current working directory as a .txt file for further use in, for example, publications:**
 
    ```python
    equations_of_motion_to_latex(eoms, savename)
@@ -182,10 +183,6 @@ Rela²x is not designed for spin systems where the dimension of *R* exceeds ~150
 
 Additional features not covered in this guide can be found in `rela2x.py`. The code is well-documented, and advanced Python/SymPy users should find it relatively straightforward to navigate.
 
-## Contributing
-
-?
-
 ## License
 
 Rela²x is licensed under the MIT License. See the LICENSE file in the repository for more details.
@@ -200,4 +197,4 @@ Email: perttu.hilla@oulu.fi
 
 If you use Rela²x in your research, please include the following citation:
 
-- Hilla, Vaara.
+[]
