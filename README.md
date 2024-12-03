@@ -61,27 +61,21 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    
 **Choose general settings (optional):**
 
-   Rela²x supports three general settings included in the `settings.py` file.
+   Rela²x currently supports one general setting included in the `settings.py` file.
    
    - `RELAXATION_THEORY` handles the level of theory used: semiclassical `'sc'`, or quantum mechanical (Lindbladian) `'qm'`.
-   - `FRAME` determines whether *R* is computed in the rotating `'rot'` or laboratory `'lab'` frame.
-   - `SECULAR` is used to turn the secular approximation on `'True'` or off `'False'`. This affects calculations only in the rotating frame.
    
    So, the possible values are:
    
    - `RELAXATION_THEORY = 'sc'` or `'qm'`
-   - `FRAME = 'rot'` or `'lab'`
-   - `SECULAR = True` or `False`,
    
-   where the default value is the first one. The easiest way to access these settings is through the `set_relaxation_theory`, `set_frame`, and `set_secular` functions. For instance:
+   where the default value is the first one. The easiest way to access this is through the `set_relaxation_theory` function:
    
    ```python
    set_relaxation_theory('qm')
    ```
    
    could be called for the Lindbladian description of *R*.
-   
-   Note that Rela²x handles homonuclear spins automatically, even in the rotating frame when the secular approximation is used. The arguments of the rapidly oscillating complex exponentials are explicitly checked.
    
 **Define the incoherent interactions that drive relaxation:**
 
@@ -147,21 +141,11 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    
 **After *R* is computed, construct the resulting relaxation equations of motion for the observables:**
 
-   Different functions are used depending on `RELAXATION_THEORY`, as the semiclassical and Lindbladian master equations are different.
-
    ```python
-   eoms = ime_equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)
+   eoms = equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)
    ```
 
-   uses the semiclassical (inhomogeneous) master equation (IME).
-
-   ```python
-   eoms = lindblad_equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)
-   ```
-   
-   uses the Lindbladian master equation.
-
-   Here, `R.op` is the matrix representation of *R*, `R.basis_symbols` is the list of basis operator symbols, and the rest are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object. 
+   Here, `R.op` is the matrix representation of *R*, `R.basis_symbols` is the list of basis operator symbols, and the rest are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object. The outcome depends on `RELAXATION_THEORY`, because the semiclassical and Lindbladian master equations are different.
    
 **Save the equations of motion in LaTeX format to the current working directory as a .txt file for further use in, for example, publications:**
 
@@ -173,7 +157,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
 ## Examples
 
-Three example notebooks that showcase the usage of Rela²x are included in the repository.
+Four example notebooks that showcase the usage of Rela²x are included in the repository.
 
 ## Warnings
 

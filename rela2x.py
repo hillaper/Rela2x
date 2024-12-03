@@ -43,30 +43,6 @@ def set_relaxation_theory(theory):
         raise ValueError("Invalid relaxation theory. Choose 'sc' for semiclassical or 'qm' for quantum mechanical.")
     settings.RELAXATION_THEORY = theory
 
-def set_frame(frame):
-    """
-    Set the frame of reference.
-    
-    Input:
-        - frame: 'lab' for laboratory frame, 'rot' for rotating frame. 
-        NOTE: Default is rotating frame.
-    """
-    if frame not in ['lab', 'rot']:
-        raise ValueError("Invalid frame of reference. Choose 'lab' for laboratory frame or 'rot' for rotating frame.")
-    settings.FRAME = frame
-
-def set_secular(Boolean):
-    """
-    Set the secular approximation.
-    
-    Input:
-        - Boolean: True for secular approximation, False for no secular approximation. 
-        NOTE: Default is True.
-    """
-    if not isinstance(Boolean, bool):
-        raise ValueError("Secular approximation has to be a boolean value. Choose True for secular approximation or False for no secular approximation.")
-    settings.SECULAR = Boolean
-
 ####################################################################################################
 # Mathematical tools.
 # NOTE: General tools defined here, more specific functionalities in classes defined later.
@@ -364,6 +340,11 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     operator = operator[rows_start:rows_end, rows_start:rows_end]
     operator_nonzeros = np.array(matrix_nonzeros(operator), dtype=np.float32)
 
+    # Increase font size for small matrices
+    if operator_nonzeros.shape[0] < 16:
+        fontsize += 2
+
+    # Create the plot with a suitable size
     if operator_nonzeros.shape[0] <= 16:
         _, ax = plt.subplots(figsize=(4, 4), dpi=150)
     else:
@@ -381,41 +362,55 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     ax.set_yticks(np.arange(-.5, operator_nonzeros.shape[0], 1), minor=True)
     if operator_nonzeros.shape[0] <= 64:
         ax.grid(which='minor', color='gray', linestyle='-', linewidth=1)
+    else:
+        ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
 
     # Move x-axis ticks to the top
     ax.xaxis.tick_top()
 
-    # Set major ticks to start from 1
-    # Include only every second or fourth tick if the matrix is large
-    if operator_nonzeros.shape[0] <= 16:
+    # Add tick labels if basis symbols are not given
+    if basis_symbols is None:
+        # Set major ticks to start from 1
+        # Include only every second or fourth tick if the matrix is large
+        if operator_nonzeros.shape[0] <= 16:
+            ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
+            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
+            ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
+            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1))
+        elif operator_nonzeros.shape[0] <= 64:
+            ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 2))
+            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 2))
+            ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1, 2))
+            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 2))
+        else:
+            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 4))
+            ax.set_xticklabels([])
+            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 4))
+
+        # Apply font size to ticks
+        if operator_nonzeros.shape[0] <= 16:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        elif operator_nonzeros.shape[0] <= 64:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize + 1)
+        else:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
+
+    # Add basis symbols next to y tick labels if given
+    elif basis_symbols is not None:
+        basis_symbols = basis_symbols[rows_start:rows_end]
+        basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
+        basis_symbols = [f'{label}{" " * (5 - len(str(i + 1)))}{i + 1}' for i, label in enumerate(basis_symbols)]
+
         ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
         ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
         ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
-        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1))
-    elif operator_nonzeros.shape[0] <= 64:
-        ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 2))
-        ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 2))
-        ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1, 2))
-        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 2))
-    else:
-        ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 4))
-        ax.set_xticklabels([])
-        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 4))
+        ax.set_yticklabels(basis_symbols)
 
-    # Apply font size to ticks
-    if operator_nonzeros.shape[0] <= 16:
-        ax.tick_params(axis='both', which='major', labelsize=fontsize)
-    elif operator_nonzeros.shape[0] <= 64:
-        ax.tick_params(axis='both', which='major', labelsize=fontsize + 1)
-    else:
-        ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
-
-    # Show the basis symbols if given
-    if basis_symbols is not None:
-        basis_symbols = basis_symbols[rows_start:rows_end]
-        basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
-        legend_text = '\n'.join(f'({i+1}): {label}' for i, label in enumerate(basis_symbols))
-        ax.text(1.05, 0.5, legend_text, transform=ax.transAxes, verticalalignment='center', fontsize=fontsize)
+        # Apply font size to ticks
+        if operator_nonzeros.shape[0] <= 16:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        else:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
 
     plt.tight_layout()
     plt.show()
@@ -425,7 +420,7 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
     Visualize a list of operators (their matrix representations).
     Plot is shown automatically.
 
-    NOTE: This is useful for, e.g., visualizing the secular vs. non-secular parts of the relaxation superoperator.
+    NOTE: This is useful for, e.g., visualizing differences between different relaxation superoperators.
 
     Input:
         - operators: List of operators to be visualized.
@@ -440,6 +435,11 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
     operators_nonzeros = [np.array(matrix_nonzeros(operator), dtype=np.float32) for operator in operators]
     operator_nonzeros = np.sum(operators_nonzeros, axis=0)
 
+    # Increase font size for small matrices
+    if operator_nonzeros.shape[0] < 16:
+        fontsize += 2
+
+    # Create the plot with a suitable size
     if operator_nonzeros.shape[0] <= 16:
         _, ax = plt.subplots(figsize=(4, 4), dpi=150)
     else:
@@ -457,41 +457,55 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
     ax.set_yticks(np.arange(-.5, operator_nonzeros.shape[0], 1), minor=True)
     if operator_nonzeros.shape[0] <= 64:
         ax.grid(which='minor', color='gray', linestyle='-', linewidth=1)
+    else:
+        ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
 
     # Move x-axis ticks to the top
     ax.xaxis.tick_top()
 
-    # Set major ticks to start from 1
-    # Include only every second or fourth tick if the matrix is large
-    if operator_nonzeros.shape[0] <= 16:
+    # Add tick labels if basis symbols are not given
+    if basis_symbols is None:
+        # Set major ticks to start from 1
+        # Include only every second or fourth tick if the matrix is large
+        if operator_nonzeros.shape[0] <= 16:
+            ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
+            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
+            ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
+            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1))
+        elif operator_nonzeros.shape[0] <= 64:
+            ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 2))
+            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 2))
+            ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1, 2))
+            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 2))
+        else:
+            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 4))
+            ax.set_xticklabels([])
+            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 4))
+
+        # Apply font size to ticks
+        if operator_nonzeros.shape[0] <= 16:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        elif operator_nonzeros.shape[0] <= 64:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize + 1)
+        else:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
+
+    # Add basis symbols next to y tick labels if given
+    elif basis_symbols is not None:
+        basis_symbols = basis_symbols[rows_start:rows_end]
+        basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
+        basis_symbols = [f'{label}{" " * (5 - len(str(i + 1)))}{i + 1}' for i, label in enumerate(basis_symbols)]
+
         ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
         ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
         ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
-        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1))
-    elif operator_nonzeros.shape[0] <= 64:
-        ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 2))
-        ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 2))
-        ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1, 2))
-        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 2))
-    else:
-        ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 4))
-        ax.set_xticklabels([])
-        ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 4))
+        ax.set_yticklabels(basis_symbols)
 
-    # Apply font size to ticks
-    if operator_nonzeros.shape[0] <= 16:
-        ax.tick_params(axis='both', which='major', labelsize=fontsize)
-    elif operator_nonzeros.shape[0] <= 64:
-        ax.tick_params(axis='both', which='major', labelsize=fontsize + 1)
-    else:
-        ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
-
-    # Show the basis symbols if given
-    if basis_symbols is not None:
-        basis_symbols = basis_symbols[rows_start:rows_end]
-        basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
-        legend_text = '\n'.join(f'({i+1}): {label}' for i, label in enumerate(basis_symbols))
-        ax.text(1.05, 0.5, legend_text, transform=ax.transAxes, verticalalignment='center', fontsize=fontsize)
+        # Apply font size to ticks
+        if operator_nonzeros.shape[0] <= 16:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        else:
+            ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
 
     plt.tight_layout()
     plt.show()
@@ -1148,7 +1162,7 @@ def Schofield_theta(w):
     Schofield thermal correction exp(-1/2 * beta * w) in the quantum mechanical spectral density function.
     NOTE: beta = hbar / (k_B * T), defined in constants_and_variables.py.
     """
-    return smp.exp(-smp.Rational(1, 2) * beta * w)
+    return smp.exp(-beta * w / 2)
         
 def J_w(intr1, intr2, l, argument):
     """
@@ -1201,11 +1215,7 @@ def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
         G = smp.Function(f'G^{{{intr_sorted[0]}, {intr_sorted[1]}}}_{{{l, 0}}}')(0)
 
     J_w = 2*G * Lorentzian(argument, tau_c_l, fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
-
-    if settings.RELAXATION_THEORY == 'sc':
-        return J_w
-    elif settings.RELAXATION_THEORY == 'qm':
-        return J_w * Schofield_theta(argument)
+    return J_w
     
 # Helper functions for RelaxationSuperoperator object
 def extract_J_w_symbols_and_args(J):
@@ -1274,99 +1284,85 @@ def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_n
     Returns:
         - Term in the relaxation superoperator.
     """
-    # Spectral density function with argument defined by the second interaction
-    w2 = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
-    argument = q*w2
-    J = J_w(alpha1, alpha2, l, argument)
+    w_s1 = smp.Symbol(f'\\omega_{{{alpha1_spin_name}}}', real=True)
+    w_s2 = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
 
-    # Lab frame
-    if settings.FRAME == 'lab':
-        return sop_R_term(op_T_left, J, op_T_right)
+    # Dirac delta function argument for the secular approximation
+    delta_sec = q*(w_s1 - w_s2)
+
+    # Ignore the term if the secular approximation is not satisfied
+    if delta_sec != 0:
+        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
-    # Rotating frame, including the secular approximation if desired
-    elif settings.FRAME == 'rot':
-        w1 = smp.Symbol(f'\\omega_{{{alpha1_spin_name}}}', real=True)
-        w = -w1 + w2
-        exp = smp.exp(smp.I*q*w*t)
+    else:
+        # Spectral density function with argument defined by the second interaction
+        argument = q*w_s2
+        J = J_w(alpha1, alpha2, l, argument)
 
-        if settings.SECULAR:
-            if w != 0:
-                exp = 0
-
-        return sop_R_term(op_T_left, J, op_T_right) * exp
+        return sop_R_term(op_T_left, J, op_T_right)
 
 def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_name1, beta_spin_name2,
                             op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction.
     """
-    w_d1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
-    w_d2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
-    argument = q1*w_d1 + q2*w_d2
-    J = J_w(alpha, beta, l, argument)
-
-    if settings.FRAME == 'lab':
-        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
+    w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
+    w_t1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
+    w_t2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
     
-    elif settings.FRAME == 'rot':
-        w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
-        w = -(q1+q2)*w_s + q1*w_d1 + q2*w_d2
-        exp = smp.exp(smp.I*w*t)
+    delta_sec = (q1+q2)*w_s - q1*w_t1 - q2*w_t2
 
-        if settings.SECULAR:
-            if w != 0:
-                exp = 0
+    if delta_sec != 0:
+        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
+    
+    else:
+        argument = q1*w_t1 + q2*w_t2
+        J = J_w(alpha, beta, l, argument)
 
-        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit() * exp
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
 
 def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_name2, alpha_spin_name,
                             op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction.
     """
+    w_t1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
+    w_t2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
     w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
-    argument = (q1+q2)*w_s
-    J = J_w(beta, alpha, l, argument)
 
-    if settings.FRAME == 'lab':
-        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
+    delta_sec = q1*w_t1 + q2*w_t2 - (q1+q2)*w_s
+
+    if delta_sec != 0:
+        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
-    elif settings.FRAME == 'rot':
-        w_d1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
-        w_d2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
-        w = -q1*w_d1 - q2*w_d2 + (q1+q2)*w_s
-        exp = smp.exp(smp.I*w*t)
+    else:
+        argument = (q1+q2)*w_s
+        J = J_w(beta, alpha, l, argument)
 
-        if settings.SECULAR:
-            if w != 0:
-                exp = 0
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
 
-        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit() * exp
-
-def sop_R_term_beta_beta(l, q1_d1, q2_d1, q1_d2, q2_d2, beta1, beta2, beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
-                            op_T_left, op_T_right):
+def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
+                         beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
+                         op_T_left, op_T_right):
     """
     Term in the relaxation superoperator between two two-spin interactions.
     """
-    w_d1_1 = smp.Symbol(f'\\omega_{{{beta1_spin_name1}}}', real=True)
-    w_d1_2 = smp.Symbol(f'\\omega_{{{beta1_spin_name2}}}', real=True)
-    argument = q1_d1*w_d1_1 + q2_d1*w_d1_2
-    J = J_w(beta1, beta2, l, argument)
+    w1_t1 = smp.Symbol(f'\\omega_{{{beta1_spin_name1}}}', real=True)
+    w1_t2 = smp.Symbol(f'\\omega_{{{beta1_spin_name2}}}', real=True)
+    w2_t1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
+    w2_t2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
 
-    if settings.FRAME == 'lab':
-        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_d1, 1, q2_d1, l, (q1_d1+q2_d1)).doit() * CG(1, q1_d2, 1, q2_d2, l, (q1_d2+q2_d2)).doit()
+    delta_sec = q1_t1*w1_t1 + q2_t1*w1_t2 - q1_t2*w2_t1 - q2_t2*w2_t2
     
-    elif settings.FRAME == 'rot':
-        w_d2_1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
-        w_d2_2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
-        w = -q1_d1*w_d1_1 - q2_d1*w_d1_2 + q1_d2*w_d2_1 + q2_d2*w_d2_2
-        exp = smp.exp(smp.I*w*t)
+    if delta_sec != 0:
+        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
+    
+    else:
+        argument = q1_t1*w1_t1 + q2_t1*w1_t2
+        J = J_w(beta1, beta2, l, argument)
 
-        if settings.SECULAR:
-            if w != 0:
-                exp = 0
-
-        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_d1, 1, q2_d1, l, (q1_d1+q2_d1)).doit() * CG(1, q1_d2, 1, q2_d2, l, (q1_d2+q2_d2)).doit() * exp
+        return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_t1, 1, q2_t1, l, (q1_t1+q2_t1)).doit()\
+                                                    * CG(1, q1_t2, 1, q2_t2, l, (q1_t2+q2_t2)).doit()
 
 def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
     """
@@ -1384,7 +1380,7 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
     R_final = smp.zeros(SpinOperators.N_states**2, SpinOperators.N_states**2, complex=True)
 
     # Prepare coupling vector for linear interactions
-    # NOTE: always along z-axis
+    # NOTE: assumed always along z-axis
     T_vector = vector_to_spherical_tensor([0, 0, 1])
 
     print('\nComputing R for interaction pairs...')
@@ -1724,19 +1720,16 @@ class RelaxationSuperoperator(Superoperator):
 ####################################################################################################
 # Master equations.
 ####################################################################################################
-def ime_equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
+def equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
     """
-    System of differential equations resulting from the inhomogeneous master equation of the
-    semiclassical relaxation theory.
-    
+    System of differential equations resulting from the master equation of the
+    given relaxation theory (defined in RELAXATION_THEORY in settings.py).
+
     Input:
         - R: Relaxation superoperator matrix representation.
         - basis_op_symbols: List of basis operator symbols.
         - expectation_values: Boolean to display as expectation values (default = True).
         - included_operators: List of indexes to select a subset of basis operators (default = None).
-
-    Returns:
-        - System of differential equations as SymPy equations.
     """
     # Include only a subset of operators if desired
     if included_operators is not None:
@@ -1749,36 +1742,14 @@ def ime_equations_of_motion(R, basis_op_symbols, expectation_values=True, includ
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
     else:
         lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(x, t))
-    rhs = smp.Matrix([smp.Symbol(f'\\Delta {symbol}'.replace('*', '')) for symbol in basis_op_symbols])
+
+    # Check the relaxation theory
+    if settings.RELAXATION_THEORY == 'sc':
+        rhs = smp.Matrix([smp.Symbol(f'\\Delta {symbol}'.replace('*', '')) for symbol in basis_op_symbols])
+    elif settings.RELAXATION_THEORY == 'qm':
+        rhs = smp.Matrix([symbol for symbol in basis_op_symbols])
 
     # Compute the right-hand side of the differential equations
-    if expectation_values:
-        rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
-
-    rhs = -R * rhs
-    return smp.Eq(lhs, rhs, evaluate=False)
-
-def lindblad_equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
-    """
-    System of differential equations resulting from the Lindblad master equation of the
-    quantum-mechanical relaxation theory.
-    
-    Input:
-        - R: Relaxation superoperator matrix representation.
-        - basis_op_symbols: List of basis operator symbols.
-        - expectation_values: Boolean to display as expectation values (default = True).
-        - included_operators: List of indexes to select a subset of basis operators (default = None).
-    """
-    if included_operators is not None:
-        R = pick_from_matrix(R, included_operators)
-        basis_op_symbols = pick_from_list(basis_op_symbols, included_operators)
-
-    if expectation_values:
-        lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
-    else:
-        lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(x, t))
-
-    rhs = smp.Matrix([symbol for symbol in basis_op_symbols])
     if expectation_values:
         rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
 
