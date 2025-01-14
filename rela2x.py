@@ -2,7 +2,7 @@
 The main module for the Rela²x package.
 
 Author:
-    Perttu Hilla, 2024
+    Perttu Hilla, 2024-2025
     perttu.hilla@oulu.fi
     NMR Research Unit, University of Oulu.
 """
@@ -117,6 +117,7 @@ def spin_quantum_numbers(isotopes):
 
 # Information extraction from spherical tensor operator symbols 
 # NOTE: This is the basis that Rela2x uses as a default.
+# TODO: Smarter indexing system.
 def T_symbol_spin_order(T_symbol):
     """
     Spin order of a spherical tensor operator symbol, i.e. the number of operators in the product.
@@ -209,10 +210,11 @@ def T_symbol_list_index(T_symbols, spin_index_lqs):
 
         if pattern == str(symbol):
             return i
-    print(f'No match found from the given symbols for {spin_index_lqs}.')
+        
+    print(f'No match found from the basis symbols for {spin_index_lqs}.')
     return None
 
-# String hashing
+# String hashing (for sorting purposes)
 def string_to_number(string):
     return int(hashlib.sha256(string.encode('utf-8')).hexdigest(), 16)
 
@@ -318,6 +320,7 @@ def all_combinations(N, *args, reverse=False):
 
 ####################################################################################################
 # Visualization tools.
+# TODO: Search for cases where the functions do not work as intended.
 ####################################################################################################
 def matrix_nonzeros(matrix):
     """Nonzero elements of a matrix."""
@@ -784,6 +787,8 @@ class SpinOperators:
 
 ####################################################################################################
 # Basis operators for Liouville space.
+# TODO: Generation of the product basis operators should be simplified.
+# TODO: Generalize the basis operator sorting.
 ####################################################################################################
 # Product basis of spherical tensor operators
 def T_product_basis(SpinOperators):
@@ -1245,7 +1250,9 @@ def extract_J_w_symbols_and_args(J):
     
 ####################################################################################################
 # Relaxation superoperators.
-# NOTE: alpha is single-spin interaction and beta is two-spin interaction (see the paper).
+# NOTE: alpha is single-spin interaction and beta is two-spin interaction.
+# See https://doi.org/10.1016/j.jmr.2024.107828)
+# TODO: Allow non-secular terms in the relaxation superoperator.
 ####################################################################################################
 def sop_R_term(op_T_left, J_w, op_T_right):
     """
@@ -1367,7 +1374,7 @@ def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
 def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
     """
     Matrix representation of the relaxation superoperator in Liouville space.
-    NOTE: This is the implementation of the main equations in the referenced publication.
+    NOTE: This is the implementation of the main equations in https://doi.org/10.1016/j.jmr.2024.107828
     
     Input:
         - SpinOperators: SpinOperators object.
@@ -1639,7 +1646,8 @@ class RelaxationSuperoperator(Superoperator):
         try:
             return self.op[index_1, index_2]
         except IndexError:
-            print('Invalid basis operator indexes. Try changing the order of the operators in the product.')
+            # print('Invalid basis operator indexes. Try changing the order of the operators in the product.')
+            pass
 
     def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
         """
@@ -1702,7 +1710,10 @@ class RelaxationSuperoperator(Superoperator):
         See coherence_order_filter, spin_order_filter and type_filter for more information.
 
         Input:
-            - filter_name: String of filter name. 'c' for coherence order, 's' for spin order, 't' for type.
+            - filter_name: String of filter name. 
+                'c' for coherence order, 
+                's' for spin order, 
+                't' for type.
             - filter_value: List or integer of filter values. (See coherence_order_filter, spin_order_filter and type_filter).
             NOTE: Determines the filter values that are kept.
         """

@@ -1,5 +1,5 @@
 """
-Variables and constants that can be readily used in the Rela2x package.
+Variables and constants that can be readily used in Rela2x.
 """
 
 import sympy as smp
