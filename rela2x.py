@@ -1274,7 +1274,8 @@ def sop_R_term(op_T_left, J_w, op_T_right):
     
 # NOTE: The functions below have the same in input and return structure as sop_R_term_alpha_alpha.
 def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_name,
-                           op_T_left, op_T_right):
+                           op_T_left, op_T_right,
+                           keep_non_secular=False):
     """
     Term in the relaxation superoperator between two single-spin interactions.
     
@@ -1288,6 +1289,9 @@ def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_n
         - op_T_left: Left spherical tensor operator.
         - op_T_right: Right spherical tensor operator.
 
+        - keep_non_secular: Whether to keep non-secular terms in the relaxation superoperator.
+            NOTE: Only applicable for the semiclassical relaxation theory.
+
     Returns:
         - Term in the relaxation superoperator.
     """
@@ -1297,9 +1301,20 @@ def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_n
     # Dirac delta function argument for the secular approximation
     delta_sec = q*(w_s1 - w_s2)
 
-    # Ignore the term if the secular approximation is not satisfied
+    # Check secular approximation
     if delta_sec != 0:
-        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
+
+        # Keep non-secular terms if specified (and semiclassical relaxation theory is used)
+        if keep_non_secular and settings.RELAXATION_THEORY == 'sc':
+
+            # Spectral density function with argument defined by the second interaction
+            argument = q*w_s2
+            J = J_w(alpha1, alpha2, l, argument)
+
+            return sop_R_term(op_T_left, J, op_T_right)
+
+        else:
+            return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
     else:
         # Spectral density function with argument defined by the second interaction
@@ -1309,7 +1324,8 @@ def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_n
         return sop_R_term(op_T_left, J, op_T_right)
 
 def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_name1, beta_spin_name2,
-                            op_T_left, op_T_right):
+                          op_T_left, op_T_right,
+                          keep_non_secular=False):
     """
     Term in the relaxation superoperator between a single-spin interaction and a two-spin interaction.
     """
@@ -1320,7 +1336,16 @@ def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_nam
     delta_sec = (q1+q2)*w_s - q1*w_t1 - q2*w_t2
 
     if delta_sec != 0:
-        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
+
+        if keep_non_secular and settings.RELAXATION_THEORY == 'sc':
+
+            argument = q1*w_t1 + q2*w_t2
+            J = J_w(alpha, beta, l, argument)
+
+            return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
+        
+        else:
+            return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
     else:
         argument = q1*w_t1 + q2*w_t2
@@ -1329,7 +1354,8 @@ def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_nam
         return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
 
 def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_name2, alpha_spin_name,
-                            op_T_left, op_T_right):
+                          op_T_left, op_T_right,
+                          keep_non_secular=False):
     """
     Term in the relaxation superoperator between a two-spin interaction and a single-spin interaction.
     """
@@ -1340,7 +1366,16 @@ def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_nam
     delta_sec = q1*w_t1 + q2*w_t2 - (q1+q2)*w_s
 
     if delta_sec != 0:
-        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
+
+        if keep_non_secular and settings.RELAXATION_THEORY == 'sc':
+
+            argument = (q1+q2)*w_s
+            J = J_w(beta, alpha, l, argument)
+
+            return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
+        
+        else:
+            return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
     else:
         argument = (q1+q2)*w_s
@@ -1350,7 +1385,8 @@ def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_nam
 
 def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
                          beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
-                         op_T_left, op_T_right):
+                         op_T_left, op_T_right,
+                         keep_non_secular=False):
     """
     Term in the relaxation superoperator between two two-spin interactions.
     """
@@ -1362,7 +1398,17 @@ def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
     delta_sec = q1_t1*w1_t1 + q2_t1*w1_t2 - q1_t2*w2_t1 - q2_t2*w2_t2
     
     if delta_sec != 0:
-        return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
+
+        if keep_non_secular and settings.RELAXATION_THEORY == 'sc':
+
+            argument = q1_t1*w1_t1 + q2_t1*w1_t2
+            J = J_w(beta1, beta2, l, argument)
+
+            return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_t1, 1, q2_t1, l, (q1_t1+q2_t1)).doit()\
+                                                        * CG(1, q1_t2, 1, q2_t2, l, (q1_t2+q2_t2)).doit()
+        
+        else:
+            return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
     else:
         argument = q1_t1*w1_t1 + q2_t1*w1_t2
@@ -1371,7 +1417,8 @@ def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
         return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_t1, 1, q2_t1, l, (q1_t1+q2_t1)).doit()\
                                                     * CG(1, q1_t2, 1, q2_t2, l, (q1_t2+q2_t2)).doit()
 
-def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
+def sop_R(SpinOperators, INCOHERENT_INTERACTIONS, 
+          keep_non_secular=False):
     """
     Matrix representation of the relaxation superoperator in Liouville space.
     NOTE: This is the implementation of the main equations in https://doi.org/10.1016/j.jmr.2024.107828
@@ -1379,6 +1426,9 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
     Input:
         - SpinOperators: SpinOperators object.
         - INCOHERENT_INTERACTIONS: Dictionary of incoherent interactions (see README.md for details)
+
+        - keep_non_secular: Whether to keep non-secular terms in the relaxation superoperator.
+            NOTE: Only applicable for the semiclassical relaxation theory.
 
     Returns:
         - R_final: Matrix representation of the relaxation superoperator in Liouville space.
@@ -1442,7 +1492,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
                                         elif properties2[0][1] == 'Q':
                                             T_right = SpinOperators.T[spin_2_index][l, q]
 
-                                        R_term = sop_R_term_alpha_alpha(l, q, intr_name1, intr_name2, spin_1_name, spin_2_name, T_left, T_right)
+                                        R_term = sop_R_term_alpha_alpha(l, q, intr_name1, intr_name2, spin_1_name, spin_2_name, T_left, T_right,
+                                                                        keep_non_secular=keep_non_secular)
 
                                         # Add the relaxation superoperator term to the relaxation superoperator
                                         R_final += R_term
@@ -1494,7 +1545,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
                                                 T_right_j = SpinOperators.T[spin_2_index_j]
                                                 T_right = T_right_i[1, q1] @ T_right_j[1, q2]
 
-                                                R_term = sop_R_term_alpha_beta(l, q1, q2, intr_name1, intr_name2, spin_1_name, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                R_term = sop_R_term_alpha_beta(l, q1, q2, intr_name1, intr_name2, spin_1_name, spin_2_name_i, spin_2_name_j, T_left, T_right,
+                                                                               keep_non_secular=keep_non_secular)
                                                 R_final += R_term
 
             # Double-spin single-spin mechanism pair
@@ -1539,7 +1591,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
                                                 elif properties2[0][1] == 'Q':
                                                     T_right = SpinOperators.T[spin_2_index][l, (q1 + q2)]
 
-                                                R_term = sop_R_term_beta_alpha(l, q1, q2, intr_name1, intr_name2, spin_1_name_i, spin_1_name_j, spin_2_name, T_left, T_right)
+                                                R_term = sop_R_term_beta_alpha(l, q1, q2, intr_name1, intr_name2, spin_1_name_i, spin_1_name_j, spin_2_name, T_left, T_right,
+                                                                               keep_non_secular=keep_non_secular)
                                                 R_final += R_term
 
             # Double-spin two-spin mechanism pair
@@ -1588,7 +1641,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS):
                                                         T_right = T_right_i[1, q1_d2] @ T_right_j[1, q2_d2]
 
                                                         R_term = sop_R_term_beta_beta(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
-                                                                        spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right)
+                                                                        spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right,
+                                                                        keep_non_secular=keep_non_secular)
                                                         R_final += R_term
       
             else:
@@ -1793,7 +1847,8 @@ def equations_of_motion_to_latex(eqs, savename):
 ####################################################################################################
 # Combined functions.
 ####################################################################################################
-def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
+def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS,
+                        sorting='v1', keep_non_secular=False):
     """
     Compute the relaxation superoperator object, basis, and symbols in the
     product basis of spherical tensor operators.
@@ -1803,6 +1858,9 @@ def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
         - INCOHERENT_INTERACTIONS: Dictionary of incoherent interactions.
         - sorting: Sorting of the basis operators (default = 'v1').
 
+        - keep_non_secular: Whether to keep non-secular terms in the relaxation superoperator.
+            NOTE: Only applicable for the semiclassical relaxation theory.
+
     Returns:
         - R: Relaxation superoperator object.
     """
@@ -1810,7 +1868,7 @@ def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS, sorting='v1'):
     Sops = SpinOperators(spinsystem)
 
     # Compute the matrix representation of the relaxation superoperator
-    R = sop_R(Sops, INCOHERENT_INTERACTIONS)
+    R = sop_R(Sops, INCOHERENT_INTERACTIONS, keep_non_secular=keep_non_secular)
 
     # Compute the direct product basis of the spherical tensor operators
     T_basis, T_symbols, norms = T_product_basis_and_symbols(Sops, sorting=sorting)
