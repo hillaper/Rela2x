@@ -365,8 +365,10 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     ax.set_yticks(np.arange(-.5, operator_nonzeros.shape[0], 1), minor=True)
     if operator_nonzeros.shape[0] <= 64:
         ax.grid(which='minor', color='gray', linestyle='-', linewidth=1)
-    else:
+    elif operator_nonzeros.shape[0] <= 128:
         ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
+    else:
+        ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.2)
 
     # Move x-axis ticks to the top
     ax.xaxis.tick_top()
@@ -460,8 +462,10 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
     ax.set_yticks(np.arange(-.5, operator_nonzeros.shape[0], 1), minor=True)
     if operator_nonzeros.shape[0] <= 64:
         ax.grid(which='minor', color='gray', linestyle='-', linewidth=1)
-    else:
+    elif operator_nonzeros.shape[0] <= 128:
         ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
+    else:
+        ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.2)
 
     # Move x-axis ticks to the top
     ax.xaxis.tick_top()
