@@ -1,0 +1,20 @@
+[project]
+name = "rela2x"
+version = "0.0.1"
+authors = [
+  { name="Perttu Hilla", email="perttu.hilla@oulu.fi" },
+]
+description = "Analytic and Automatic NMR relaxation theory."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+dependencies = ["numpy", "matplotlib", "sympy"]
+
+[build-system]
+requires = ["setuptools >= 77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
