@@ -15,13 +15,46 @@ Only basic knowledge of Python is required. Additional experience with the *SymP
 
 For detailed information on the functions and classes of Rela²x, refer to the documentation directly in `rela2x.py`.
 
-## Installation
+## Installation from PyPI
+Rela²x is available from the Python Package Index (PyPI) repository:
 
-To install and run Rela²x:
+   ```python
+   pip install rela2x
+   ```
 
-1. Clone the repository or download it as a ZIP file and extract the contents.
-2. Navigate to the project directory.
-3. Run the provided Jupyter notebooks or create your own.
+## Installation from source
+To install the version from GitHub manually:
+
+1. Ensure the `build` module is installed:
+
+      ```python
+      pip install build
+      ```
+
+2. Download the source code archive (.zip or .tar.gz).
+
+3. Extract the archive.
+
+4. Navigate to the extracted folder:
+
+      ```python
+      cd /your/path/rela2x
+      ```
+      
+5. Build the wheel from the source:
+
+      ```python
+      python -m build --wheel
+      ```
+
+6. Navigate to the dist folder:
+
+      ```python
+      cd /your/path/rela2x/dist
+      ```
+
+7. Install the wheel using pip:
+      pip install rela2x-0.0.1-py3-none-any.whl
 
 ## Dependencies
 
@@ -180,5 +213,6 @@ Email: perttu.hilla@oulu.fi
 ## Citations
 
 If you use Rela²x in your work, please include the following citation:
+
 
 P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025; https://doi.org/10.1016/j.jmr.2024.107828
