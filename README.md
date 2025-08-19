@@ -54,7 +54,7 @@ To install the version from GitHub manually:
       ```
 
 7. Install the wheel using pip:
-      pip install rela2x-0.0.1-py3-none-any.whl
+      pip install rela2x-0.0.1-py3-none-any.whl   
 
 ## Dependencies
 
@@ -73,6 +73,7 @@ These necessary packages are listed in the `requirements.txt` file. Rela²x is d
 ## Usage
 
 The usage of Rela²x is summarized below. Specifics, such as variable names, can be customized as needed.
+You can also Download and run the provided example Jupyter notebooks.
 
 **Import `rela2x.py`:**
 
@@ -216,3 +217,4 @@ If you use Rela²x in your work, please include the following citation:
 
 
 P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025; https://doi.org/10.1016/j.jmr.2024.107828
+
