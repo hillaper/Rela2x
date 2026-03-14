@@ -65,7 +65,9 @@ To install the current version 0.0.2 from GitHub manually:
       ```
 
 7. Install the wheel using pip:
+      ```python
       pip install rela2x-0.0.1-py3-none-any.whl
+      ```
 
 ## Dependencies
 
