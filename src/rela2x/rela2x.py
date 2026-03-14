@@ -2,8 +2,8 @@
 The main module for the Rela²x package.
 
 Author:
-    Perttu Hilla, 2024-2025
-    perttu.hilla@oulu.fi
+    Perttu Hilla, 2024 onwards.
+    perttu.hilla@oulu.fi (or perttuhilla@gmail.com)
     NMR Research Unit, University of Oulu.
 """
 
@@ -198,12 +198,13 @@ def T_symbol_list_index(T_symbols, spin_index_lqs):
     Returns:
         - Index of the symbol that matches with the given spin indexes and lqs. None if no match is found.
     """
-    spin_index_lqs = spin_index_lqs.split('*')
-    spin_index_lqs = [(int(spin_index_lq[0]), int(spin_index_lq[1]), int(spin_index_lq[2:])) for spin_index_lq in spin_index_lqs]
+    spin_index_lqs_2 = spin_index_lqs.split('*')
+    spin_index_lqs_2 = [(int(spin_index_lq_2[0]), int(spin_index_lq_2[1]), int(spin_index_lq_2[2:])) 
+                        for spin_index_lq_2 in spin_index_lqs_2]
 
     for i, symbol in enumerate(T_symbols):
         pattern = ''
-        for spin_index, l, q in spin_index_lqs:
+        for spin_index, l, q in spin_index_lqs_2:
             pattern += f'\\hat{{T}}_{{{l}{q}}}^{{({spin_index})}}'
             pattern += '*'
         pattern = pattern[:-1]
@@ -213,6 +214,35 @@ def T_symbol_list_index(T_symbols, spin_index_lqs):
         
     print(f'No match found from the basis symbols for {spin_index_lqs}.')
     return None
+
+def S_symbol_list_index(S_symbols, spin_index_directions):
+    """
+    Find the list index of a symbol with given spin index and direction from a list of Cartesian spin operator symbols.
+    
+    Input:
+        - S_symbols: List of Cartesian spin operator symbols
+        - spin_index_directions: String of the form '1x' for spin 1 in the x-direction, or '1x*2y' for a product of two operators, etc.
+        NOTE: The order of the spin indexes and directions is important for the function to work.
+
+    Returns:
+        - Index of the symbol that matches with the given spin index and direction. None if no match is found.
+    """
+    spin_index_directions_2 = spin_index_directions.split('*')
+    spin_index_directions_2 = [(int(spin_index_direction_2[0]), spin_index_direction_2[1]) 
+                               for spin_index_direction_2 in spin_index_directions_2]
+
+    for i, symbol in enumerate(S_symbols):
+        pattern = ''
+        for spin_index, direction in spin_index_directions_2:
+            pattern += f'\\hat{{S}}_{{{direction}}}^{{({spin_index})}}'
+            pattern += '*'
+        pattern = pattern[:-1]
+
+        if pattern == str(symbol):
+            return i
+
+    print(f'No match found from the basis symbols for {spin_index_directions}.')
+    return None            
 
 # String hashing (for sorting purposes)
 def string_to_number(string):
@@ -520,6 +550,36 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
 ####################################################################################################
 # Symbolic operators and expectation values.
 ####################################################################################################
+# Cartesian spin operators
+def op_S_symbol(direction, index):
+    """
+    Symbolic spin operator
+    
+    Input:
+        - direction: Direction of the spin operator ('x', 'y', 'z', etc.).
+        - index: Spin index.
+
+    Returns:
+        - Spin operator symbol.
+    """
+    return smpq.Operator(f'\\hat{{S}}_{{{direction}}}^{{({index})}}')
+
+def product_op_S_symbol(directions, indices):
+    """
+    Symbolic product of spin operators
+
+    Input:
+        - directions: List of directions of the spin operators.
+        - indices: List of spin indices.
+
+    Returns:
+        - Product-operator symbol.
+    """
+    product_op_S = 1
+    for direction, index in zip(directions, indices):
+        product_op_S *= op_S_symbol(direction, index)
+    return product_op_S
+
 # Spherical tensor operators
 def op_T_symbol(l, q, index):
     """
@@ -686,7 +746,8 @@ def op_T_coupled_lq(T1_dict, T2_dict, l, q):
 # Vectorizations:
 def vectorize(op):
     """Vectorize a matrix."""
-    return smp.Matrix(np.array(op).flatten(order='F'))
+    # NOTE: Row-wise convention, this is correct with the rest of the definitions.
+    return smp.Matrix(np.array(op).flatten())
 
 def vectorize_all(ops):
     """Vectorize a list of matrices."""
@@ -709,10 +770,14 @@ def sop_double_commutator(op1, op2):
     """Double commutator superoperator."""
     return sop_commutator(op1) @ sop_commutator(op2)
 
+# TODO: Check that the definition is correct and consistent with literature. 
+# For the moment this version gives the correct results.
 def sop_D(op1, op2):
     """Lindbladian dissipation superoperator."""
     return sop_lmul(op1) @ sop_rmul(op2)\
            - smp.Rational(1, 2) * (sop_lmul(op2 @ op1) + sop_rmul(op2 @ op1))
+    # return sop_lmul(op1) @ sop_rmul(op2)\
+    #         - smp.Rational(1, 2) * (sop_lmul(op2) @ sop_lmul(op1) + sop_rmul(op2) @ sop_rmul(op1))
 
 ####################################################################################################
 # Spin operator classes.
@@ -749,6 +814,12 @@ class SpinOperators:
         - S: Spin quantum numbers of the spins.
         - N_spins: Number of spins in the system.
         - N_states: Number of states in the system.
+
+        - E: Unit operator for each spin.
+        - E_symbol: Unit operator symbols for each spin.
+        - Sx, Sy, Sz, Sp, Sm: Cartesian spin operators for each spin.
+        - Sx_symbol, Sy_symbol, Sz_symbol, Sp_symbol, Sm_symbol: Cartesian spin operator symbols for each spin.
+
         - T: Spherical tensor operators for each spin.
         - T_symbol: Spherical tensor operator symbols for each spin.
     """
@@ -762,6 +833,9 @@ class SpinOperators:
 
         self.N_spins = len(self.S)
         self.gen_N_states()
+
+        self.gen_many_spin_cartesian_operators()
+        self.gen_cartesian_operator_symbols()
         
         self.gen_many_spin_T_operators()
         self.gen_T_operator_symbols()
@@ -771,6 +845,25 @@ class SpinOperators:
         self.N_states = 1
         for i in range(self.N_spins):
             self.N_states *= int(2*self.S[i] + 1)
+
+    # Cartesian spin operators
+    def gen_many_spin_cartesian_operators(self):
+        """Generate the many-spin Cartesian spin operators."""
+        self.E = [many_spin_operator(self.S, smp.eye(int(2*S+1)), i) for i, S in enumerate(self.S)]
+        self.Sx = [many_spin_operator(self.S, op_Sx(S), i) for i, S in enumerate(self.S)]
+        self.Sy = [many_spin_operator(self.S, op_Sy(S), i) for i, S in enumerate(self.S)]
+        self.Sz = [many_spin_operator(self.S, op_Sz(S), i) for i, S in enumerate(self.S)]
+        self.Sp = [many_spin_operator(self.S, op_Sp(S), i) for i, S in enumerate(self.S)]
+        self.Sm = [many_spin_operator(self.S, op_Sm(S), i) for i, S in enumerate(self.S)]
+
+    def gen_cartesian_operator_symbols(self):
+        """Generate the Cartesian spin operator symbols."""
+        self.E_symbol = [smpq.Operator(f'\\hat{{E}}^{{({i+1})}}') for i in range(self.N_spins)]
+        self.Sx_symbol = [op_S_symbol('x', i+1) for i in range(self.N_spins)]
+        self.Sy_symbol = [op_S_symbol('y', i+1) for i in range(self.N_spins)]
+        self.Sz_symbol = [op_S_symbol('z', i+1) for i in range(self.N_spins)]
+        self.Sp_symbol = [op_S_symbol('+', i+1) for i in range(self.N_spins)]
+        self.Sm_symbol = [op_S_symbol('-', i+1) for i in range(self.N_spins)]
 
     # Spherical tensor operators
     def gen_many_spin_T_operators(self):
@@ -794,6 +887,104 @@ class SpinOperators:
 # TODO: Generation of the product basis operators should be simplified.
 # TODO: Generalize the basis operator sorting.
 ####################################################################################################
+# Product basis of Cartesian spin operators
+def Cartesian_product_basis(SpinOperators):
+    """
+    Generate the direct product basis of Cartesian spin operators.
+    Each E, Sx, Sy, Sz operator of each spin is multiplied with the
+    E, Sx, Sy, Sz operators of the other spins.
+    Input:
+        - SpinOperators: SpinOperators object.
+    Returns:
+        - Cartesian_product_basis: list of product basis operators.
+    """
+    N_spins = SpinOperators.N_spins
+    E = SpinOperators.E
+    Sx = SpinOperators.Sx
+    Sy = SpinOperators.Sy
+    Sz = SpinOperators.Sz
+
+    # Combinatorics
+    ops = [[E[i], Sx[i], Sy[i], Sz[i]] for i in range(N_spins)]
+    op_indexes = [list_indexes(ops[i]) for i in range(N_spins)]
+    op_indexes = all_combinations(N_spins, *op_indexes)
+    spin_indexes = [tuple(range(N_spins)) for _ in range(len(op_indexes))]
+
+    # Generate the product basis
+    Cartesian_product_basis = []
+    for spin_index_tuple, op_index_tuple in zip(spin_indexes, op_indexes):
+        Cartesian_product = 1
+        for i, j in zip(spin_index_tuple, op_index_tuple):
+            if isinstance(Cartesian_product, int):
+                Cartesian_product = ops[i][j]
+            else:
+                Cartesian_product = Cartesian_product @ ops[i][j]
+        Cartesian_product_basis.append(Cartesian_product)
+
+    # Norms of the basis operators. Used for normalization and later for basis to observables conversion.
+    norms = [Lv_norm(Cartesian_product_basis[i]) for i in range(len(Cartesian_product_basis))]
+
+    # Normalize the basis
+    Cartesian_product_basis = [Cartesian_product_basis[i] / norms[i] for i in range(len(Cartesian_product_basis))]
+    return Cartesian_product_basis, norms
+
+def Cartesian_product_basis_symbols(SpinOperators):
+    """
+    Generate the direct product basis symbols of Cartesian spin operators.
+    Each E, Sx, Sy, Sz symbol of each spin is multiplied
+    with the E, Sx, Sy, Sz symbols of the other spins.
+
+    Input:
+        - SpinOperators: SpinOperators object.
+
+    Returns:
+        - Cartesian_product_basis_symbols: list of product basis symbols.
+    """
+    N_spins = SpinOperators.N_spins
+    E_symbol = SpinOperators.E_symbol
+    Sx_symbol = SpinOperators.Sx_symbol
+    Sy_symbol = SpinOperators.Sy_symbol
+    Sz_symbol = SpinOperators.Sz_symbol
+
+    # Combinatorics
+    symbols = [[E_symbol[i], Sx_symbol[i], Sy_symbol[i], Sz_symbol[i]] for i in range(N_spins)]
+    symbol_indexes = [list_indexes(symbols[i]) for i in range(N_spins)]
+    symbol_indexes = all_combinations(N_spins, *symbol_indexes)
+    spin_indexes = [tuple(range(N_spins)) for _ in range(len(symbol_indexes))]
+
+    # Generate the product basis symbols
+    Cartesian_product_basis_symbols = []
+    for spin_index_tuple, symbol_index_tuple in zip(spin_indexes, symbol_indexes):
+        Cartesian_product_symbol = 1
+        for i, j in zip(spin_index_tuple, symbol_index_tuple):
+
+            # Ignore the identity operator
+            if not 'E' in str(symbols[i][j]):
+                Cartesian_product_symbol *= symbols[i][j]
+
+        # Denote the identity operator as E
+        if Cartesian_product_symbol == 1:
+            Cartesian_product_symbol = smpq.Operator(f'\\hat{{E}}')
+
+        Cartesian_product_basis_symbols.append(Cartesian_product_symbol)
+    return Cartesian_product_basis_symbols
+
+def Cartesian_product_basis_and_symbols(SpinOperators):
+    """
+    Generate the direct product basis of Cartesian spin operators and their symbols.
+    Each E, Sx, Sy, Sz operator of each spin is multiplied
+    with the E, Sx, Sy, Sz operators of the other spins.
+    Input:
+        - SpinOperators: SpinOperators object.
+    Returns:
+        - Cartesian_product_basis: list of product basis operators.
+        - Cartesian_product_basis_symbols: list of product basis symbols.
+        - norms: norms of the basis operators.
+    """
+    Cartesian_prod_basis, norms = Cartesian_product_basis(SpinOperators)
+    Cartesian_prod_basis_symbols = Cartesian_product_basis_symbols(SpinOperators)
+    return Cartesian_prod_basis, Cartesian_prod_basis_symbols, norms
+
 # Product basis of spherical tensor operators
 def T_product_basis(SpinOperators):
     """
@@ -1256,7 +1447,6 @@ def extract_J_w_symbols_and_args(J):
 # Relaxation superoperators.
 # NOTE: alpha is single-spin interaction and beta is two-spin interaction.
 # See https://doi.org/10.1016/j.jmr.2024.107828)
-# TODO: Allow non-secular terms in the relaxation superoperator.
 ####################################################################################################
 def sop_R_term(op_T_left, J_w, op_T_right):
     """
@@ -1686,25 +1876,42 @@ class RelaxationSuperoperator(Superoperator):
         # Simplify the relaxation superoperator
         self.op = smp.simplify(self.op)
 
-    def rate(self, spin_index_lqs_1, spin_index_lqs_2=None):
+    def rate(self, spin_index_op_index_1, spin_index_op_index_2=None):
         """
-        Relaxation rate between two basis operators.
+        Relaxation rate between two operators.
 
         Input:
-            - spin_index_lqs_1: String of the first spin index and lq values (see T_symbol_list_index).
-            - spin_index_lqs_2: String of the second spin index and lq values. If None, it is the same as spin_index_lqs_1.
+            - spin_index_op_index_1: String of the first spin index and operator index.
+                For spherical tensor operators: String of 3 numbers, first is the spin index,
+                and the second and third are the spherical tensor rank and projection.
+                For Cartesian operators: String of 2 numbers, first is the spin index,
+                and the second is the Cartesian operator direction, x, y or z.
+
+            - spin_index_op_index_2: String of the second spin index and operator index.
+                If None, it is the same as spin_index_op_index_1.
 
         Returns:
-            - The relaxation rate between the two basis operators.
+            - The relaxation rate between the two operators.
         """
-        if spin_index_lqs_2 is None:
-            spin_index_lqs_2 = spin_index_lqs_1
-        index_1 = T_symbol_list_index(self.basis_symbols, spin_index_lqs_1)
-        index_2 = T_symbol_list_index(self.basis_symbols, spin_index_lqs_2)
+        # Check if Cartesian or spherical tensor operator
+        if spin_index_op_index_1[-1] in 'xyz':
+            # Cartesian operator
+            index_1 = S_symbol_list_index(self.basis_symbols, spin_index_op_index_1)
+            if spin_index_op_index_2 is None:
+                index_2 = index_1
+            else:
+                index_2 = S_symbol_list_index(self.basis_symbols, spin_index_op_index_2)
+        else:
+            # Spherical tensor operator
+            index_1 = T_symbol_list_index(self.basis_symbols, spin_index_op_index_1)
+            if spin_index_op_index_2 is None:
+                index_2 = index_1
+            else:
+                index_2 = T_symbol_list_index(self.basis_symbols, spin_index_op_index_2)
+                
         try:
             return self.op[index_1, index_2]
         except IndexError:
-            # print('Invalid basis operator indexes. Try changing the order of the operators in the product.')
             pass
 
     def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
@@ -1762,10 +1969,23 @@ class RelaxationSuperoperator(Superoperator):
                         if mechanism1 in str(J_w) and mechanism2 in str(J_w):
                             self.substitute({J_w: 0})
 
+    def neglect_cross_relaxation(self):
+        """
+        Neglect all cross-relaxation terms (off-diagonal elements) in the relaxation superoperator.
+        """
+        self.op = self.op.as_mutable()  # Convert to a mutable matrix
+        for i in range(self.op.shape[0]):
+            for j in range(self.op.shape[1]):
+                if i != j:
+                    self.op[i, j] = 0  # Set off-diagonal elements to zero
+        self.op = self.op.as_immutable()  # Convert back to an immutable matrix
+
     def filter(self, filter_name, filter_value):
         """
         Filter out regions of the relaxation superoperator based on given criteria.
         See coherence_order_filter, spin_order_filter and type_filter for more information.
+
+        NOTE: Works only for the irreducible spherical tensor basis.
 
         Input:
             - filter_name: String of filter name. 
@@ -1851,16 +2071,18 @@ def equations_of_motion_to_latex(eqs, savename):
 ####################################################################################################
 # Combined functions.
 ####################################################################################################
-def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS,
-                        sorting='v1', keep_non_secular=False):
+def R_object_in_prodop_basis(spinsystem, INCOHERENT_INTERACTIONS,
+                             basis='T', sorting='v1', keep_non_secular=False):
     """
     Compute the relaxation superoperator object, basis, and symbols in the
-    product basis of spherical tensor operators.
+    product basis of spherical tensor operators or Cartesian spin operators.
     
     Input:
         - spinsystem: List of nuclear isotopes (strings) that define the spin system.
         - INCOHERENT_INTERACTIONS: Dictionary of incoherent interactions.
+        - basis: Basis type ('T' for spherical tensor operators, 'C' for Cartesian spin operators).
         - sorting: Sorting of the basis operators (default = 'v1').
+            NOTE: Only applicable for the spherical tensor operators basis.
 
         - keep_non_secular: Whether to keep non-secular terms in the relaxation superoperator.
             NOTE: Only applicable for the semiclassical relaxation theory.
@@ -1871,15 +2093,29 @@ def R_object_in_T_basis(spinsystem, INCOHERENT_INTERACTIONS,
     # Create SpinOperators object
     Sops = SpinOperators(spinsystem)
 
+    # Check that the spin system is a spin-1/2 system if Cartesian basis is requested
+    if basis == 'C' and not all(Sops.S[i] == 1/2 for i in range(Sops.N_spins)):
+        raise ValueError('Cartesian basis is only available for spin-1/2 systems.')
+    
+    # Check that the relaxation theory is semiclassical if non-secular terms are to be kept
+    if keep_non_secular and settings.RELAXATION_THEORY == 'qm':
+        raise ValueError('Non-secular version of the quantum mechanical relaxation theory is not defined.')
+
     # Compute the matrix representation of the relaxation superoperator
     R = sop_R(Sops, INCOHERENT_INTERACTIONS, keep_non_secular=keep_non_secular)
 
-    # Compute the direct product basis of the spherical tensor operators
-    T_basis, T_symbols, norms = T_product_basis_and_symbols(Sops, sorting=sorting)
+    if basis == 'C':
+        # Compute the direct product basis of the Cartesian spin operators
+        basis_ops, symbols, norms = Cartesian_product_basis_and_symbols(Sops)
+    elif basis == 'T':
+        # Compute the direct product basis of the spherical tensor operators
+        basis_ops, symbols, norms = T_product_basis_and_symbols(Sops, sorting=sorting)
+    else:
+        raise ValueError("Invalid basis type. Choose 'T' for spherical tensor operators or 'C' for Cartesian spin operators.")
 
     # Create the relaxation superoperator and convert to the product basis
-    R = RelaxationSuperoperator(R, T_symbols, norms)
-    R.to_basis(T_basis)
+    R = RelaxationSuperoperator(R, symbols, norms)
+    R.to_basis(basis_ops)
 
     print('\nFinal clean-ups...')
     # Convert the relaxation rates to correspond to observables

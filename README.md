@@ -7,6 +7,17 @@ Rela²x is a freely available Python package that offers a collection of functio
 
 The package provides tools to compute and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between the interactions. Approximations, simplifications for the analysis of *R*, and visualization tools are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
 
+## Releases
+
+**Rela²x 0.0.1:**  
+Initial release of the Rela2x program described in:
+
+P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025;  
+[https://doi.org/10.1016/j.jmr.2024.107828](https://doi.org/10.1016/j.jmr.2024.107828)
+
+**Rela²x 0.0.2 (under development):**  
+This version is currently in development. Please refer to the repository for the latest updates.
+
 ## Notes
 
 Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. (There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code.)
@@ -16,14 +27,14 @@ Only basic knowledge of Python is required. Additional experience with the *SymP
 For detailed information on the functions and classes of Rela²x, refer to the documentation directly in `rela2x.py`.
 
 ## Installation from PyPI
-Rela²x is available from the Python Package Index (PyPI) repository:
+Rela²x version 0.0.1 is available from the Python Package Index (PyPI) repository:
 
    ```python
    pip install rela2x
    ```
 
 ## Installation from source
-To install the version from GitHub manually:
+To install the current version 0.0.2 from GitHub manually:
 
 1. Ensure the `build` module is installed:
 
@@ -54,7 +65,7 @@ To install the version from GitHub manually:
       ```
 
 7. Install the wheel using pip:
-      pip install rela2x-0.0.1-py3-none-any.whl   
+      pip install rela2x-0.0.1-py3-none-any.whl
 
 ## Dependencies
 
@@ -137,15 +148,18 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    }
    ```
    
-**Compute the matrix representation of *R*, convert it to the product operator basis of spherical tensor operators, and create a `RelaxationSuperoperator` object:**
+**Compute the matrix representation of *R*, convert it to the product operator basis, and create a `RelaxationSuperoperator` object:**
 
-   It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators. This is automatically done by calling:
-   
    ```python
-   R = R_object_in_T_basis(spin_system, intrs, sorting='v1', keep_non_secular=False)
+   R = R_object_in_prodop_basis(spin_system, intrs, basis='T', sorting='v1', keep_non_secular=False)
    ```
 
-   The `R_object_in_T_basis` function takes as input the `spin_system` and `intrs` variables as defined above, and optionally information about how to sort the operator basis via `sorting`. Three options are available: `'v1'`, `'v2'`, or `None` (for details, see the documentation in `rela2x.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator.
+   The `R_object_in_prodop_basis` function takes as input the `spin_system` and `intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
+   
+   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `rela2x.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator. If `Cartesian` is set
+   `True`, the product basis of Cartesian spin operators is used.
+
+   Note that the non-unit norms of observables are taken into account in the relaxation rates, i.e., the matrix elements. The rates directly correspond to observables.
 
    The function returns a `RelaxationSuperoperator` object that has the following attributes:
 
@@ -162,13 +176,13 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=None)` visualizes *R* as a matrix plot. If desired, only certain sections of *R* can be visualized via `rows_start` and `rows_end`. A legend with the basis operator symbols will be drawn if `basis_symbols` is provided. Font size can be adjusted for large matrices.
 
-   - `rate(spin_index_lqs_1, spin_index_lqs_2=None)` returns the relaxation rate between two basis operators. The `spin_index_lqs` arguments must be strings of the form `'110'`, where the first number refers to the index of the spin, the second number refers to the rank *l*, and the third number refers to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_lqs_1` only will return the auto-relaxation rate of that operator. If `spin_index_lqs_2` is also provided, the cross-relaxation rate between those two operators is returned (see the examples provided in the repository).
+   - `rate(spin_index_op_index_1, spin_index_op_index_2=None)` returns the relaxation rate between two observables. For the spherical tensor basis, the `spin_index_op_index_X` arguments must be strings of the form `'110'`, where the first number refers to the index of the spin, the second number refers to the rank *l*, and the third number refers to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_lqs_1` only will return the auto-relaxation rate of that operator. If `spin_index_lqs_2` is also provided, the cross-relaxation rate between those two operators is returned (see the examples provided in the repository). For the Cartesian basis, `spin_index_op_index_X` are of the form `'1x'`, `'1z*2z'`, etc.
 
    - `to_isotropic_rotational_diffusion(fast_motion_limit=False, slow_motion_limit=False)` applies the isotropic rotational diffusion model with the fast-motion or slow-motion limit approximation if desired.
 
    - `neglect_cross_correlated_terms(mechanism1=None, mechanism2=None)` neglects cross-correlated contributions in *R* between two mechanisms. The arguments `mechanism1` and `mechanism2` must correspond to the names chosen for `mechanism_name`s in `intrs`. If `mechanism2` is not provided, `mechanism1` is used, and if neither is provided, all cross-correlated contributions are neglected.
 
-   - `filter(filter_name, filter_value)` filters out potentially uninteresting regions of *R* based on given criteria. `filter_name` must be one of the following: 'c' for coherence order, 's' for spin order, or 't' for type. This determines the criteria for filtration. `filter_value` is an integer or a list of integers depending on the filtration type (see the documentation in `rela2x.py`) and determines which values are kept (not filtered out) in *R*. For instance, calling `R.filter('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
+   - (Only available for the spherical tensor basis): `filter(filter_name, filter_value)` filters out potentially uninteresting regions of *R* based on given criteria. `filter_name` must be one of the following: 'c' for coherence order, 's' for spin order, or 't' for type. This determines the criteria for filtration. `filter_value` is an integer or a list of integers depending on the filtration type (see the documentation in `rela2x.py`) and determines which values are kept (not filtered out) in *R*. For instance, calling `R.filter('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
 
    The best way to get acquainted is to try these functions yourself!
    
