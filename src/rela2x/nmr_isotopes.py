@@ -8,7 +8,8 @@ If your isotope is not in the list, you can add it by following the format of th
 """
 
 ISOTOPES =\
-{'1H': [0.5, 42.577478615342585],
+{'e': [0.5, 28024.95164], # Electron
+ '1H': [0.5, 42.577478615342585],
  '2D': [1.0, 6.5359028540009305],
  '3T': [0.5, 45.41483815473964],
  '3He': [0.5, -32.43604456417949],

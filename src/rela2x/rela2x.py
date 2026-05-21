@@ -2,7 +2,7 @@
 The main module for the Rela²x package.
 
 Author:
-    Perttu Hilla, 2024 onwards.
+    Perttu Hilla, 2024-2026
     perttu.hilla@oulu.fi (or perttuhilla@gmail.com)
     NMR Research Unit, University of Oulu.
 """
@@ -68,7 +68,7 @@ def commutator(op1, op2):
     """Symbolic commutator of two operators."""
     return op1 * op2 - op2 * op1
 
-# Liouville bracket and norm
+# Liouville bracket, norm and amplitude
 def Lv_bracket(op1, op2):
     """Symbolic Liouville bracket of two operators."""
     return smp.trace(op1.H * op2)
@@ -76,6 +76,10 @@ def Lv_bracket(op1, op2):
 def Lv_norm(op):
     """Symbolic Liouville norm of an operator."""
     return smp.sqrt(Lv_bracket(op, op))
+
+def Lv_amplitude(op1, op2):
+    """Symbolic Liouville amplitude of operator 1 contained in operator 2."""
+    return Lv_bracket(op1, op2) / Lv_bracket(op1, op1)
 
 def op_change_of_basis(op, basis):
     """
@@ -94,6 +98,30 @@ def op_change_of_basis(op, basis):
             op_new[i, j] = basis[i].H * op * basis[j]
             op_new[i, j] = smp.expand(op_new[i, j])
     return op_new
+
+# Function to compute the amplitude of each basis state/operator in a given operator
+# and return a symbolic expression for the operator in terms of the basis states/operators.
+def op_decomposition(op, basis, basis_symbols):
+    """
+    Symbolic decomposition of an operator in terms of a basis set.
+    
+    Input:
+        - op: Operator to be decomposed (matrix representation)
+        - basis: Basis set (list of matrix representations of the basis states/operators).
+        - basis_symbols: Symbols corresponding to the basis states/operators.
+
+    Returns:
+        - op_decomposed: Symbolic expression for the operator in terms of the basis states/operators.
+    """
+    op_decomposed = 0
+    for i in range(len(basis)):
+        amplitude = Lv_amplitude(basis[i], op)
+        amplitude = smp.nsimplify(amplitude)
+        if amplitude != 0:
+            op_decomposed += amplitude * basis_symbols[i]
+    # return smp.expand(op_decomposed)
+    # return op_decomposed
+    return smp.simplify(op_decomposed)
 
 ####################################################################################################
 # Miscellaneous tools.
