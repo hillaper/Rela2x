@@ -3,7 +3,4 @@ __pycache__/
 .virtual_documents/
 build/
 dist/
-*DOODLE*
-*EOMS*
-*pickle*
 /src/*.egg-info/

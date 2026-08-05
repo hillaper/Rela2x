@@ -3,9 +3,9 @@
 
 ## Description
 
-Rela²x is a freely available Python package that offers a collection of functions and classes for analytic and automatic high-field liquid-state NMR relaxation theory.
+Rela²x is a freely available Python package that offers a collection of functions and classes for analytic and automatic high-field liquid-state NMR relaxation theory (and spin physics in general). 
 
-The package provides tools to compute and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between the interactions. Approximations, simplifications for the analysis of *R*, and visualization tools are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
+The package provides tools to compute and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between the interactions. Approximations and simplifications for the analysis of *R*, and visualization tools, are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
 
 ## Releases
 
@@ -20,7 +20,9 @@ This version is currently in development. Please refer to the repository for the
 
 ## Notes
 
-Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. (There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code.)
+Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code. 
+
+This documentation contains the most up-to-date information regarding the code itself, and it may differ from the publication. The underlying theory is the same, but the code has been updated and improved since the publication.
 
 Only basic knowledge of Python is required. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
 
@@ -64,24 +66,21 @@ To install the current version 0.0.2 from GitHub manually:
       cd /your/path/rela2x/dist
       ```
 
-7. Install the wheel using pip:
+7. Install the built wheel using pip (adjust the filename to match the version you built):
       ```python
-      pip install rela2x-0.0.1-py3-none-any.whl
+      pip install rela2x-<version>-py3-none-any.whl
       ```
 
 ## Dependencies
 
- The following Python packages are required:
+The following Python packages are required:
 
 - numpy
 - matplotlib
 - sympy
 
-These necessary packages are listed in the `requirements.txt` file. Rela²x is designed to be an interactive program, so an installation of 
-
-- Jupyter Notebook
-
- is also required. The *Anaconda* distribution includes all the necessary packages and is recommended for ease of setup.
+These dependencies are listed in `pyproject.toml`. Rela²x is designed to be an interactive program, so a Jupyter Notebook installation is also required. 
+<!-- The *Anaconda* distribution includes all the necessary packages and is recommended for ease of setup. -->
 
 ## Usage
 
@@ -115,13 +114,13 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    
    - `RELAXATION_THEORY = 'sc'` or `'qm'`
    
-   where the default value is the first one. The easiest way to access this is through the `set_relaxation_theory` function:
+   where the default value is the first one. The easiest way to access this is through the `set_relaxation_theory` function. For instance:
    
    ```python
    set_relaxation_theory('qm')
    ```
    
-   could be called for the Lindbladian description of *R*.
+   selects the Lindbladian description of *R*.
    
 **Define the incoherent interactions that drive relaxation:**
 
@@ -158,8 +157,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    The `R_object_in_prodop_basis` function takes as input the `spin_system` and `intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
    
-   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `rela2x.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator. If `Cartesian` is set
-   `True`, the product basis of Cartesian spin operators is used.
+   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `rela2x.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator.
 
    Note that the non-unit norms of observables are taken into account in the relaxation rates, i.e., the matrix elements. The rates directly correspond to observables.
 
@@ -168,7 +166,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    - `op` returns the matrix representation of *R*.
    - `symbols_in` returns all symbols appearing in *R*.
    - `functions_in` returns all functions appearing in *R*.
-   - `basis_symbols` returns all basis operator symbols corresponding to the direct product basis of spherical tensor operators.
+   - `basis_symbols` returns all basis operator symbols corresponding to the chosen direct product operator basis.
 
    And functions:
 
@@ -176,9 +174,9 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `substitute(substitutions_dict)` substitutes symbols and functions in *R* with given numerical values. This allows easy conversion to NumPy arrays for numerical use.
 
-   - `visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=None)` visualizes *R* as a matrix plot. If desired, only certain sections of *R* can be visualized via `rows_start` and `rows_end`. A legend with the basis operator symbols will be drawn if `basis_symbols` is provided. Font size can be adjusted for large matrices.
+   - `visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=8)` visualizes *R* as a matrix plot. If desired, only certain sections of *R* can be visualized via `rows_start` and `rows_end`. A legend with the basis operator symbols will be drawn if `basis_symbols` is provided. Font size can be adjusted for large matrices.
 
-   - `rate(spin_index_op_index_1, spin_index_op_index_2=None)` returns the relaxation rate between two observables. For the spherical tensor basis, the `spin_index_op_index_X` arguments must be strings of the form `'110'`, where the first number refers to the index of the spin, the second number refers to the rank *l*, and the third number refers to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_lqs_1` only will return the auto-relaxation rate of that operator. If `spin_index_lqs_2` is also provided, the cross-relaxation rate between those two operators is returned (see the examples provided in the repository). For the Cartesian basis, `spin_index_op_index_X` are of the form `'1x'`, `'1z*2z'`, etc.
+   - `rate(spin_index_op_index_1, spin_index_op_index_2=None)` returns the relaxation rate between two observables. For the spherical tensor basis, the `spin_index_op_index_X` arguments must be strings of the form `'110'`, where the first number refers to the index of the spin, the second number refers to the rank *l*, and the third number refers to the component *q* of that operator. Product operators are simply of the form `'110*210'`. Providing `spin_index_op_index_1` only will return the auto-relaxation rate of that operator. If `spin_index_op_index_2` is also provided, the cross-relaxation rate between those two operators is returned (see the examples provided in the repository). For the Cartesian basis, `spin_index_op_index_X` are of the form `'1x'`, `'1z*2z'`, etc.
 
    - `to_isotropic_rotational_diffusion(fast_motion_limit=False, slow_motion_limit=False)` applies the isotropic rotational diffusion model with the fast-motion or slow-motion limit approximation if desired.
 
@@ -206,7 +204,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
 ## Examples
 
-Four example notebooks that showcase the usage of Rela²x are included in the repository.
+Five example notebooks that showcase the usage of Rela²x are included in the repository.
 
 ## Warnings
 
@@ -214,7 +212,7 @@ Rela²x is not designed for spin systems where the dimension of *R* exceeds ~150
 
 ## Advanced Users
 
-Additional features not covered in this guide can be found in `rela2x.py`. The code is fairly well-documented, and advanced Python/SymPy users should find it relatively straightforward to navigate.
+Additional features not covered in this guide can be found in `rela2x.py`. The code is well-documented, and advanced Python/SymPy users should find it relatively straightforward to navigate.
 
 ## License
 
@@ -226,11 +224,10 @@ If you have questions, comments, or suggestions, please feel free to reach out:
 
 Email: perttu.hilla@oulu.fi
 
+I'm also happy to help with any issues you may encounter while using Rela²x.
+
 ## Citations
 
 If you use Rela²x in your work, please include the following citation:
 
-
 P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025; https://doi.org/10.1016/j.jmr.2024.107828
-
-

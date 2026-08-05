@@ -1,10 +1,16 @@
 """
-Dictionary of NMR isotopes with their spin quantum numbers (and gyromagnetic ratios in MHz/T).
+Tabulated NMR isotope data used throughout Rela2x.
 
-From: https://www.kherb.io/docs/nmr_table.html
+Each entry in `ISOTOPES` stores the following quantities in this order:
 
-Isotopes with different _X can be used to simulate different chemical shifts.
-If your isotope is not in the list, you can add it by following the format of the other isotopes.
+- Spin quantum number.
+- Gyromagnetic ratio in MHz/T.
+
+Source: https://www.kherb.io/docs/nmr_table.html
+
+Isotopes with different suffixes (e.g. `_X`) can be added to simulate distinct
+chemical shifts for chemically inequivalent nuclei of the same isotope. If your
+isotope of interest is not listed, add it by following the format of the entries below.
 """
 
 ISOTOPES =\
