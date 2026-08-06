@@ -67,7 +67,7 @@ def set_relaxation_theory(theory: str) -> None:
 # Mathematical tools.
 # NOTE: General tools defined here, more specific functionalities in classes defined later.
 ####################################################################################################
-def KroneckerProduct(*m: smp.MatrixBase) -> smp.MatrixBase:
+def Kronecker_product(*m: smp.MatrixBase) -> smp.MatrixBase:
     """
     Compute the symbolic Kronecker product of multiple matrices.
 
@@ -1377,7 +1377,7 @@ def sop_rmul(op: smp.MatrixBase) -> smp.MatrixBase:
     sympy.Matrix
         Right-multiplication superoperator corresponding to `op`.
     """
-    return KroneckerProduct(smp.eye(op.shape[0]), op.T)
+    return Kronecker_product(smp.eye(op.shape[0]), op.T)
 
 def sop_lmul(op: smp.MatrixBase) -> smp.MatrixBase:
     """
@@ -1393,7 +1393,7 @@ def sop_lmul(op: smp.MatrixBase) -> smp.MatrixBase:
     sympy.Matrix
         Left-multiplication superoperator corresponding to `op`.
     """
-    return KroneckerProduct(op, smp.eye(op.shape[0]))
+    return Kronecker_product(op, smp.eye(op.shape[0]))
 
 def sop_commutator(op: smp.MatrixBase) -> smp.MatrixBase:
     """
@@ -1484,9 +1484,9 @@ def many_spin_operator(
     op = smp.eye(1)
     for i in range(len(S)):
         if i == spin_index:
-            op = KroneckerProduct(op, single_spin_operator)
+            op = Kronecker_product(op, single_spin_operator)
         else:
-            op = KroneckerProduct(op, smp.eye(int(2*S[i]+1)))
+            op = Kronecker_product(op, smp.eye(int(2*S[i]+1)))
     return op
 
 class SpinOperators:
@@ -1642,7 +1642,7 @@ class SpinOperators:
 # survives the later ones. See the notes on the individual sorting functions.
 ####################################################################################################
 # Product basis of Cartesian spin operators
-def Cartesian_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr]]:
+def Cartesian_product_basis(spin_operators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr]]:
     """
     Generate the direct product basis of Cartesian spin operators.
 
@@ -1651,7 +1651,7 @@ def Cartesian_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.Matr
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to generate the product basis.
 
     Returns
@@ -1661,11 +1661,11 @@ def Cartesian_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.Matr
     norms : list of sympy.Expr
         Liouville norms of the (unnormalized) product basis operators.
     """
-    N_spins = SpinOperators.N_spins
-    E = SpinOperators.E
-    Sx = SpinOperators.Sx
-    Sy = SpinOperators.Sy
-    Sz = SpinOperators.Sz
+    N_spins = spin_operators.N_spins
+    E = spin_operators.E
+    Sx = spin_operators.Sx
+    Sy = spin_operators.Sy
+    Sz = spin_operators.Sz
 
     # Combinatorics
     ops = [[E[i], Sx[i], Sy[i], Sz[i]] for i in range(N_spins)]
@@ -1691,7 +1691,7 @@ def Cartesian_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.Matr
     Cartesian_product_basis = [Cartesian_product_basis[i] / norms[i] for i in range(len(Cartesian_product_basis))]
     return Cartesian_product_basis, norms
 
-def Cartesian_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Expr]:
+def Cartesian_product_basis_symbols(spin_operators: SpinOperators) -> list[smp.Expr]:
     """
     Generate the direct product basis symbols of Cartesian spin operators.
 
@@ -1700,7 +1700,7 @@ def Cartesian_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Ex
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to generate the product basis symbols.
 
     Returns
@@ -1708,11 +1708,11 @@ def Cartesian_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Ex
     Cartesian_product_basis_symbols : list of sympy.Expr
         Product basis symbols.
     """
-    N_spins = SpinOperators.N_spins
-    E_symbol = SpinOperators.E_symbol
-    Sx_symbol = SpinOperators.Sx_symbol
-    Sy_symbol = SpinOperators.Sy_symbol
-    Sz_symbol = SpinOperators.Sz_symbol
+    N_spins = spin_operators.N_spins
+    E_symbol = spin_operators.E_symbol
+    Sx_symbol = spin_operators.Sx_symbol
+    Sy_symbol = spin_operators.Sy_symbol
+    Sz_symbol = spin_operators.Sz_symbol
 
     # Combinatorics
     symbols = [[E_symbol[i], Sx_symbol[i], Sy_symbol[i], Sz_symbol[i]] for i in range(N_spins)]
@@ -1738,7 +1738,7 @@ def Cartesian_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Ex
     return Cartesian_product_basis_symbols
 
 def Cartesian_product_basis_and_symbols(
-        SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
+        spin_operators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Generate the direct product basis of Cartesian spin operators together with their symbols.
 
@@ -1747,7 +1747,7 @@ def Cartesian_product_basis_and_symbols(
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to generate the product basis.
 
     Returns
@@ -1759,12 +1759,12 @@ def Cartesian_product_basis_and_symbols(
     norms : list of sympy.Expr
         Liouville norms of the (unnormalized) product basis operators.
     """
-    Cartesian_prod_basis, norms = Cartesian_product_basis(SpinOperators)
-    Cartesian_prod_basis_symbols = Cartesian_product_basis_symbols(SpinOperators)
+    Cartesian_prod_basis, norms = Cartesian_product_basis(spin_operators)
+    Cartesian_prod_basis_symbols = Cartesian_product_basis_symbols(spin_operators)
     return Cartesian_prod_basis, Cartesian_prod_basis_symbols, norms
 
 # Product basis of spherical tensor operators
-def T_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr]]:
+def T_product_basis(spin_operators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr]]:
     """
     Generate the direct product basis of spherical tensor operators.
 
@@ -1772,7 +1772,7 @@ def T_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase],
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to generate the product basis.
 
     Returns
@@ -1782,9 +1782,9 @@ def T_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase],
     norms : list of sympy.Expr
         Liouville norms of the (unnormalized) product basis operators.
     """
-    S = SpinOperators.S
-    N_spins = SpinOperators.N_spins
-    T = SpinOperators.T
+    S = spin_operators.S
+    N_spins = spin_operators.N_spins
+    T = spin_operators.T
 
     # Combinatorics
     ops = [[T[i][(l, q)] for l in range(int(2*S[i])+1) for q in range(-l, l+1)] for i in range(N_spins)]
@@ -1810,7 +1810,7 @@ def T_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase],
     T_product_basis = [T_product_basis[i] / norms[i] for i in range(len(T_product_basis))]
     return T_product_basis, norms
 
-def T_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Expr]:
+def T_product_basis_symbols(spin_operators: SpinOperators) -> list[smp.Expr]:
     """
     Generate the direct product basis symbols of spherical tensor operators.
 
@@ -1818,7 +1818,7 @@ def T_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Expr]:
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to generate the product basis symbols.
 
     Returns
@@ -1826,9 +1826,9 @@ def T_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Expr]:
     T_product_basis_symbols : list of sympy.Expr
         Product basis symbols.
     """
-    S = SpinOperators.S
-    N_spins = SpinOperators.N_spins
-    T_symbol = SpinOperators.T_symbol
+    S = spin_operators.S
+    N_spins = spin_operators.N_spins
+    T_symbol = spin_operators.T_symbol
 
     # Combinatorics
     symbols = [[T_symbol[i][(l, q)] for l in range(int(2*S[i])+1) for q in range(-l, l+1)] for i in range(N_spins)]
@@ -2110,7 +2110,7 @@ def full_sort_T_product_basis(
     return T_product_basis, T_product_basis_symbols, T_product_basis_norms
 
 def T_product_basis_and_symbols(
-    SpinOperators: SpinOperators,
+    spin_operators: SpinOperators,
     sorting: str | None='v1',
 ) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
@@ -2118,7 +2118,7 @@ def T_product_basis_and_symbols(
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to generate the product basis.
     sorting : str or None, optional
         Sorting version, ``'v1'`` or ``'v2'``, or None to skip sorting. Default is ``'v1'``.
@@ -2132,8 +2132,8 @@ def T_product_basis_and_symbols(
     norms : list of sympy.Expr
         Norms of the (unnormalized) basis operators, sorted correspondingly.
     """
-    basis, norms = T_product_basis(SpinOperators)
-    symbols = T_product_basis_symbols(SpinOperators)
+    basis, norms = T_product_basis(spin_operators)
+    symbols = T_product_basis_symbols(spin_operators)
     if sorting is None:
         return basis, symbols, norms
     else:
@@ -2797,7 +2797,7 @@ def sop_R_term_beta_beta(
                                                     * CG(1, q1_t2, 1, q2_t2, l, (q1_t2+q2_t2)).doit()
 
 def sop_R(
-    SpinOperators: SpinOperators,
+    spin_operators: SpinOperators,
     INCOHERENT_INTERACTIONS: dict,
     keep_non_secular: bool=False,
 ) -> smp.MatrixBase:
@@ -2812,7 +2812,7 @@ def sop_R(
 
     Parameters
     ----------
-    SpinOperators : SpinOperators
+    spin_operators : SpinOperators
         Spin system for which to compute the relaxation superoperator.
     INCOHERENT_INTERACTIONS : dict
         Dictionary of incoherent interactions (see README.md for the required format).
@@ -2832,7 +2832,7 @@ def sop_R(
         is not of the format described in README.md.
     """
     # Initialize the relaxation superoperator.
-    R_final = smp.zeros(SpinOperators.N_states**2, SpinOperators.N_states**2, complex=True)
+    R_final = smp.zeros(spin_operators.N_states**2, spin_operators.N_states**2, complex=True)
 
     # Prepare coupling vector for linear interactions
     # NOTE: assumed always along z-axis
@@ -2872,8 +2872,8 @@ def sop_R(
                                 print(f'{intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name = SpinOperators.spinsystem[spin_1_index]
-                                spin_2_name = SpinOperators.spinsystem[spin_2_index]
+                                spin_1_name = spin_operators.spinsystem[spin_1_index]
+                                spin_2_name = spin_operators.spinsystem[spin_2_index]
 
                                 # Loop over all common ranks and components
                                 for l in ls:
@@ -2881,14 +2881,14 @@ def sop_R(
 
                                         # Check if linear or quadratic interaction
                                         if properties1[0][1] == 'L':
-                                            T_left = op_T_coupled_lq(SpinOperators.T[spin_1_index], T_vector, l, q)
+                                            T_left = op_T_coupled_lq(spin_operators.T[spin_1_index], T_vector, l, q)
                                         elif properties1[0][1] == 'Q':
-                                            T_left = SpinOperators.T[spin_1_index][l, q]
+                                            T_left = spin_operators.T[spin_1_index][l, q]
 
                                         if properties2[0][1] == 'L':
-                                            T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], T_vector, l, q)
+                                            T_right = op_T_coupled_lq(spin_operators.T[spin_2_index], T_vector, l, q)
                                         elif properties2[0][1] == 'Q':
-                                            T_right = SpinOperators.T[spin_2_index][l, q]
+                                            T_right = spin_operators.T[spin_2_index][l, q]
 
                                         R_term = sop_R_term_alpha_alpha(
                                             l, q, intr_name1, intr_name2,
@@ -2924,9 +2924,9 @@ def sop_R(
                                 print(f'{intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name = SpinOperators.spinsystem[spin_1_index]
-                                spin_2_name_i = SpinOperators.spinsystem[spin_2_index_i]
-                                spin_2_name_j = SpinOperators.spinsystem[spin_2_index_j]
+                                spin_1_name = spin_operators.spinsystem[spin_1_index]
+                                spin_2_name_i = spin_operators.spinsystem[spin_2_index_i]
+                                spin_2_name_j = spin_operators.spinsystem[spin_2_index_j]
 
                                 for l in ls:
                                     # Loop over q1 and q2 values in the symbolic case
@@ -2938,14 +2938,14 @@ def sop_R(
 
                                                 if properties1[0][1] == 'L':
                                                     T_left = op_T_coupled_lq(
-                                                        SpinOperators.T[spin_1_index],
+                                                        spin_operators.T[spin_1_index],
                                                         T_vector, l, (q1 + q2))
                                                 elif properties1[0][1] == 'Q':
-                                                    T_left = SpinOperators.T[spin_1_index][l, (q1 + q2)]
+                                                    T_left = spin_operators.T[spin_1_index][l, (q1 + q2)]
 
                                                 # Interaction 2 is always bilinear if type is '2'
-                                                T_right_i = SpinOperators.T[spin_2_index_i]
-                                                T_right_j = SpinOperators.T[spin_2_index_j]
+                                                T_right_i = spin_operators.T[spin_2_index_i]
+                                                T_right_j = spin_operators.T[spin_2_index_j]
                                                 T_right = T_right_i[1, q1] @ T_right_j[1, q2]
 
                                                 R_term = sop_R_term_alpha_beta(
@@ -2978,9 +2978,9 @@ def sop_R(
                                 print(f'{intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name_i = SpinOperators.spinsystem[spin_1_index_i]
-                                spin_1_name_j = SpinOperators.spinsystem[spin_1_index_j]
-                                spin_2_name = SpinOperators.spinsystem[spin_2_index]
+                                spin_1_name_i = spin_operators.spinsystem[spin_1_index_i]
+                                spin_1_name_j = spin_operators.spinsystem[spin_1_index_j]
+                                spin_2_name = spin_operators.spinsystem[spin_2_index]
 
                                 for l in ls:
                                     for q1 in range(-1, 2):
@@ -2988,16 +2988,16 @@ def sop_R(
 
                                             if np.abs(q1 + q2) <= l:
                                             
-                                                T_left_i = SpinOperators.T[spin_1_index_i]
-                                                T_left_j = SpinOperators.T[spin_1_index_j]
+                                                T_left_i = spin_operators.T[spin_1_index_i]
+                                                T_left_j = spin_operators.T[spin_1_index_j]
                                                 T_left = T_left_i[1, q1] @ T_left_j[1, q2]
 
                                                 if properties2[0][1] == 'L':
                                                     T_right = op_T_coupled_lq(
-                                                        SpinOperators.T[spin_2_index],
+                                                        spin_operators.T[spin_2_index],
                                                         T_vector, l, (q1 + q2))
                                                 elif properties2[0][1] == 'Q':
-                                                    T_right = SpinOperators.T[spin_2_index][l, (q1 + q2)]
+                                                    T_right = spin_operators.T[spin_2_index][l, (q1 + q2)]
 
                                                 R_term = sop_R_term_beta_alpha(
                                                     l, q1, q2, intr_name1, intr_name2,
@@ -3030,10 +3030,10 @@ def sop_R(
                                 print(f'{intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name_i = SpinOperators.spinsystem[spin_1_index_i]
-                                spin_1_name_j = SpinOperators.spinsystem[spin_1_index_j]
-                                spin_2_name_i = SpinOperators.spinsystem[spin_2_index_i]
-                                spin_2_name_j = SpinOperators.spinsystem[spin_2_index_j]
+                                spin_1_name_i = spin_operators.spinsystem[spin_1_index_i]
+                                spin_1_name_j = spin_operators.spinsystem[spin_1_index_j]
+                                spin_2_name_i = spin_operators.spinsystem[spin_2_index_i]
+                                spin_2_name_j = spin_operators.spinsystem[spin_2_index_j]
 
                                 for l in ls:
                                     for q1_d1 in range(-1, 2):
@@ -3045,12 +3045,12 @@ def sop_R(
                                                     if np.abs(q1_d1 + q2_d1) <= l \
                                                             and (q1_d1 + q2_d1) == (q1_d2 + q2_d2):
 
-                                                        T_left_i = SpinOperators.T[spin_1_index_i]
-                                                        T_left_j = SpinOperators.T[spin_1_index_j]
+                                                        T_left_i = spin_operators.T[spin_1_index_i]
+                                                        T_left_j = spin_operators.T[spin_1_index_j]
                                                         T_left = T_left_i[1, q1_d1] @ T_left_j[1, q2_d1]
 
-                                                        T_right_i = SpinOperators.T[spin_2_index_i]
-                                                        T_right_j = SpinOperators.T[spin_2_index_j]
+                                                        T_right_i = spin_operators.T[spin_2_index_i]
+                                                        T_right_j = spin_operators.T[spin_2_index_j]
                                                         T_right = T_right_i[1, q1_d2] @ T_right_j[1, q2_d2]
 
                                                         R_term = sop_R_term_beta_beta(
@@ -3394,7 +3394,7 @@ def equations_of_motion_to_latex(
 ####################################################################################################
 # Combined functions.
 ####################################################################################################
-def R_object_in_prodop_basis(
+def R_object_in_product_operator_basis(
     spinsystem: list[str],
     INCOHERENT_INTERACTIONS: dict,
     basis: str='T',

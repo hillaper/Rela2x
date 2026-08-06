@@ -152,10 +152,10 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 **Compute the matrix representation of *R*, convert it to the product operator basis, and create a `RelaxationSuperoperator` object:**
 
    ```python
-   R = R_object_in_prodop_basis(spin_system, intrs, basis='T', sorting='v1', keep_non_secular=False)
+   R = R_object_in_product_operator_basis(spin_system, intrs, basis='T', sorting='v1', keep_non_secular=False)
    ```
 
-   The `R_object_in_prodop_basis` function takes as input the `spin_system` and `intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
+   The `R_object_in_product_operator_basis` function takes as input the `spin_system` and `intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
    
    Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `rela2x.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator.
 
