@@ -10,6 +10,10 @@ Author:
 ####################################################################################################
 # Imports.
 ####################################################################################################
+# NOTE: Postponed evaluation of annotations, so that the modern union syntax can be used in type
+# hints while the package keeps supporting the Python versions declared in pyproject.toml.
+from __future__ import annotations
+
 # General
 import re
 import hashlib
@@ -30,10 +34,15 @@ from rela2x import nmr_isotopes
 # NOTE: The remaining symbolic constants and variables are re-exported to the user by __init__.py.
 from rela2x.constants_and_variables import beta, t, tau_c
 
+# NOTE: The __future__ import above binds a module-level name of its own, which "from rela2x import *"
+# would otherwise pick up. Removing it keeps the public namespace to the Rela2x interface itself.
+# The postponed evaluation of annotations is a compile-time property and is unaffected.
+del annotations
+
 ####################################################################################################
 # Settings and modes of the program.
 ####################################################################################################
-def set_relaxation_theory(theory):
+def set_relaxation_theory(theory: str) -> None:
     """
     Set the level of theory used for the relaxation superoperator.
 
@@ -58,7 +67,7 @@ def set_relaxation_theory(theory):
 # Mathematical tools.
 # NOTE: General tools defined here, more specific functionalities in classes defined later.
 ####################################################################################################
-def KroneckerProduct(*m):
+def KroneckerProduct(*m: smp.MatrixBase) -> smp.MatrixBase:
     """
     Compute the symbolic Kronecker product of multiple matrices.
 
@@ -81,7 +90,10 @@ def KroneckerProduct(*m):
     return result
 
 # NOTE: op in the following functions refers to SymPy matrices.
-def commutator(op1, op2):
+def commutator(
+    op1: smp.MatrixBase,
+    op2: smp.MatrixBase,
+) -> smp.MatrixBase:
     """
     Compute the symbolic commutator [op1, op2] = op1 * op2 - op2 * op1.
 
@@ -100,7 +112,10 @@ def commutator(op1, op2):
     return op1 * op2 - op2 * op1
 
 # Liouville bracket, norm and amplitude
-def Lv_bracket(op1, op2):
+def Lv_bracket(
+    op1: smp.MatrixBase,
+    op2: smp.MatrixBase,
+) -> smp.Expr:
     """
     Compute the symbolic Hilbert-Schmidt (Liouville) inner product of two operators.
 
@@ -118,7 +133,7 @@ def Lv_bracket(op1, op2):
     """
     return smp.trace(op1.H * op2)
 
-def Lv_norm(op):
+def Lv_norm(op: smp.MatrixBase) -> smp.Expr:
     """
     Compute the symbolic Liouville (Hilbert-Schmidt) norm of an operator.
 
@@ -134,7 +149,10 @@ def Lv_norm(op):
     """
     return smp.sqrt(Lv_bracket(op, op))
 
-def Lv_amplitude(op1, op2):
+def Lv_amplitude(
+    op1: smp.MatrixBase,
+    op2: smp.MatrixBase,
+) -> smp.Expr:
     """
     Compute the symbolic Liouville amplitude of `op1` contained in `op2`.
 
@@ -152,7 +170,10 @@ def Lv_amplitude(op1, op2):
     """
     return Lv_bracket(op1, op2) / Lv_bracket(op1, op1)
 
-def op_change_of_basis(op, basis):
+def op_change_of_basis(
+    op: smp.MatrixBase,
+    basis: list[smp.MatrixBase],
+) -> smp.Matrix:
     """
     Perform a symbolic change of basis of an operator.
 
@@ -179,7 +200,11 @@ def op_change_of_basis(op, basis):
 
 # Function to compute the amplitude of each basis state/operator in a given operator
 # and return a symbolic expression for the operator in terms of the basis states/operators.
-def op_decomposition(op, basis, basis_symbols):
+def op_decomposition(
+    op: smp.MatrixBase,
+    basis: list[smp.MatrixBase],
+    basis_symbols: list[smp.Expr],
+) -> smp.Expr:
     """
     Perform a symbolic decomposition of an operator in terms of a basis set.
 
@@ -212,7 +237,7 @@ def op_decomposition(op, basis, basis_symbols):
 # NOTE: General tools defined here, more specific functionalities in classes.
 ####################################################################################################
 # Information extraction from input of NMR isotopes
-def spin_quantum_numbers(isotopes):
+def spin_quantum_numbers(isotopes: list[str]) -> list[float]:
     """
     Look up the spin quantum numbers of a list of nuclear isotopes.
 
@@ -242,7 +267,7 @@ def spin_quantum_numbers(isotopes):
 # of an operator by parsing its printed LaTeX symbol, which couples this logic to the exact symbol
 # formatting and limits it to single-digit ranks and projections. Carrying the (l, q, spin index)
 # values alongside the basis would remove the parsing entirely.
-def T_symbol_spin_order(T_symbol):
+def T_symbol_spin_order(T_symbol: smp.Expr) -> int:
     """
     Determine the spin order of a spherical tensor operator symbol, i.e. the
     number of single-spin operators in the product.
@@ -259,7 +284,7 @@ def T_symbol_spin_order(T_symbol):
     """
     return str(T_symbol).count('T')
 
-def T_symbol_coherence_order(T_symbol):
+def T_symbol_coherence_order(T_symbol: smp.Expr) -> int:
     """
     Determine the coherence order of a spherical tensor operator symbol.
 
@@ -277,7 +302,7 @@ def T_symbol_coherence_order(T_symbol):
     numbers = re.findall(r'(\-?\d)}\^\{\(\d+\)\}', s)
     return sum([int(num) for num in numbers])
 
-def T_symbol_type(T_symbol):
+def T_symbol_type(T_symbol: smp.Expr) -> int:
     """
     Determine the type (population or coherence) of a spherical tensor operator symbol.
 
@@ -306,7 +331,10 @@ def T_symbol_type(T_symbol):
      # 0 for population, 1 for coherence
     return 1 if N > 0 else 0
 
-def T_symbol_Nth_spin_projection(T_symbol, N):
+def T_symbol_Nth_spin_projection(
+    T_symbol: smp.Expr,
+    N: int,
+) -> int:
     """
     Extract the projection q of the Nth spin in a spherical tensor operator symbol.
 
@@ -338,7 +366,10 @@ def T_symbol_Nth_spin_projection(T_symbol, N):
     else:
         return 0
 
-def T_symbol_list_index(T_symbols, spin_index_lqs):
+def T_symbol_list_index(
+    T_symbols: list[smp.Expr],
+    spin_index_lqs: str,
+) -> int | None:
     """
     Find the list index of a spherical tensor operator symbol matching given
     spin indices, ranks and projections.
@@ -376,7 +407,10 @@ def T_symbol_list_index(T_symbols, spin_index_lqs):
     print(f'No match found from the basis symbols for {spin_index_lqs}.')
     return None
 
-def S_symbol_list_index(S_symbols, spin_index_directions):
+def S_symbol_list_index(
+    S_symbols: list[smp.Expr],
+    spin_index_directions: str,
+) -> int | None:
     """
     Find the list index of a Cartesian spin operator symbol matching given
     spin indices and directions.
@@ -415,7 +449,7 @@ def S_symbol_list_index(S_symbols, spin_index_directions):
     return None            
 
 # String hashing (for sorting purposes)
-def string_to_number(string):
+def string_to_number(string: str) -> int:
     """
     Hash a string to an integer for use as a deterministic sort key.
 
@@ -432,7 +466,10 @@ def string_to_number(string):
     return int(hashlib.sha256(string.encode('utf-8')).hexdigest(), 16)
 
 # Convenience function
-def sort_interactions(intr1, intr2):
+def sort_interactions(
+    intr1: str,
+    intr2: str,
+) -> str | list[str]:
     """
     Sort a pair of interaction names into a canonical order.
 
@@ -459,7 +496,10 @@ def sort_interactions(intr1, intr2):
         return sorted([str(intr1), str(intr2)], key=string_to_number)
 
 # List and matrix operations
-def pick_from_list(lst, kept_indices):
+def pick_from_list(
+    lst: list,
+    kept_indices: list[int],
+) -> list:
     """
     Select a subset of elements from a list.
 
@@ -477,7 +517,10 @@ def pick_from_list(lst, kept_indices):
     """
     return [lst[i] for i in kept_indices]
 
-def pick_from_matrix(matrix, kept_indices):
+def pick_from_matrix(
+    matrix: smp.MatrixBase,
+    kept_indices: list[int],
+) -> smp.MatrixBase:
     """
     Select a subset of rows and columns from a matrix.
 
@@ -495,7 +538,10 @@ def pick_from_matrix(matrix, kept_indices):
     """
     return matrix[kept_indices, :][:, kept_indices]
 
-def cut_list(lst, removed_indices):
+def cut_list(
+    lst: list,
+    removed_indices: list[int],
+) -> list:
     """
     Remove a subset of elements from a list.
 
@@ -513,7 +559,10 @@ def cut_list(lst, removed_indices):
     """
     return [item for i, item in enumerate(lst) if i not in removed_indices]
 
-def cut_matrix(matrix, removed_indices):
+def cut_matrix(
+    matrix: smp.MatrixBase,
+    removed_indices: list[int],
+) -> smp.MatrixBase:
     """
     Remove a subset of rows and columns from a matrix.
 
@@ -541,7 +590,11 @@ def cut_matrix(matrix, removed_indices):
 
 # Filter functions based on allowed coherences, spin orders and types
 # NOTE: General input and return structure defined in coherence_order_filter.
-def coherence_order_filter(operator, basis_state_symbols, allowed_coherences):
+def coherence_order_filter(
+    operator: smp.MatrixBase,
+    basis_state_symbols: list[smp.Expr],
+    allowed_coherences: list[int],
+) -> tuple[smp.MatrixBase, list[smp.Expr]]:
     """
     Filter an operator and its basis state symbols to a set of allowed coherence orders.
 
@@ -566,7 +619,11 @@ def coherence_order_filter(operator, basis_state_symbols, allowed_coherences):
     unique_indexes_to_delete = list(set(indexes_to_delete))
     return cut_matrix(operator, unique_indexes_to_delete), cut_list(basis_state_symbols, unique_indexes_to_delete)
 
-def spin_order_filter(operator, basis_state_symbols, allowed_spin_orders):
+def spin_order_filter(
+    operator: smp.MatrixBase,
+    basis_state_symbols: list[smp.Expr],
+    allowed_spin_orders: list[int],
+) -> tuple[smp.MatrixBase, list[smp.Expr]]:
     """
     Filter an operator and its basis state symbols to a set of allowed spin orders.
 
@@ -591,7 +648,11 @@ def spin_order_filter(operator, basis_state_symbols, allowed_spin_orders):
     unique_indexes_to_delete = list(set(indexes_to_delete))
     return cut_matrix(operator, unique_indexes_to_delete), cut_list(basis_state_symbols, unique_indexes_to_delete)
 
-def type_filter(operator, basis_state_symbols, allowed_type):
+def type_filter(
+    operator: smp.MatrixBase,
+    basis_state_symbols: list[smp.Expr],
+    allowed_type: int,
+) -> tuple[smp.MatrixBase, list[smp.Expr]]:
     """
     Filter an operator and its basis state symbols to a single allowed type.
 
@@ -617,7 +678,7 @@ def type_filter(operator, basis_state_symbols, allowed_type):
     return cut_matrix(operator, unique_indexes_to_delete), cut_list(basis_state_symbols, unique_indexes_to_delete)
 
 # List operations
-def list_indexes(lst):
+def list_indexes(lst: list) -> list[int]:
     """
     Return the valid indices of a list.
 
@@ -634,7 +695,11 @@ def list_indexes(lst):
     return list(range(len(lst)))
 
 # Combinatorics
-def all_combinations(N, *args, reverse=False):
+def all_combinations(
+    N: int,
+    *args: list,
+    reverse: bool=False,
+) -> list[tuple]:
     """
     Generate all combinations of N lists.
 
@@ -674,7 +739,7 @@ def all_combinations(N, *args, reverse=False):
 # Visualization tools.
 # NOTE: Requesting an empty section, i.e. rows_start equal to rows_end, raises from inside NumPy.
 ####################################################################################################
-def matrix_nonzeros(matrix):
+def matrix_nonzeros(matrix: smp.MatrixBase) -> smp.MatrixBase:
     """
     Build a binary mask of the nonzero elements of a matrix.
 
@@ -690,8 +755,13 @@ def matrix_nonzeros(matrix):
     """
     return matrix.applyfunc(lambda x: 1 if x != 0 else 0)
 
-def _plot_nonzero_pattern(operator_nonzeros, rows_start=0, rows_end=None,
-                          basis_symbols=None, fontsize=8):
+def _plot_nonzero_pattern(
+    operator_nonzeros: np.ndarray,
+    rows_start: int=0,
+    rows_end: int | None=None,
+    basis_symbols: list[smp.Expr] | None=None,
+    fontsize: int=8,
+) -> None:
     """
     Draw the nonzero-element pattern of an operator as a matrix plot.
 
@@ -797,7 +867,13 @@ def _plot_nonzero_pattern(operator_nonzeros, rows_start=0, rows_end=None,
     plt.tight_layout()
     plt.show()
 
-def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
+def visualize_operator(
+    operator: smp.MatrixBase,
+    rows_start: int=0,
+    rows_end: int | None=None,
+    basis_symbols: list[smp.Expr] | None=None,
+    fontsize: int=8,
+) -> None:
     """
     Visualize a given operator (its matrix representation) as a nonzero-element plot.
 
@@ -825,7 +901,13 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     _plot_nonzero_pattern(operator_nonzeros, rows_start=rows_start, rows_end=rows_end,
                           basis_symbols=basis_symbols, fontsize=fontsize)
 
-def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
+def visualize_many_operators(
+    operators: list[smp.MatrixBase],
+    rows_start: int=0,
+    rows_end: int | None=None,
+    basis_symbols: list[smp.Expr] | None=None,
+    fontsize: int=8,
+) -> None:
     """
     Visualize the combined nonzero-element pattern of a list of operators
     (their matrix representations).
@@ -861,7 +943,10 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
 # Symbolic operators and expectation values.
 ####################################################################################################
 # Cartesian spin operators
-def op_S_symbol(direction, index):
+def op_S_symbol(
+    direction: str,
+    index: int,
+) -> smpq.Operator:
     """
     Build a symbolic Cartesian spin operator.
 
@@ -879,7 +964,10 @@ def op_S_symbol(direction, index):
     """
     return smpq.Operator(f'\\hat{{S}}_{{{direction}}}^{{({index})}}')
 
-def product_op_S_symbol(directions, indices):
+def product_op_S_symbol(
+    directions: list[str],
+    indices: list[int],
+) -> smp.Expr:
     """
     Build a symbolic product of Cartesian spin operators.
 
@@ -901,7 +989,11 @@ def product_op_S_symbol(directions, indices):
     return product_op_S
 
 # Spherical tensor operators
-def op_T_symbol(l, q, index):
+def op_T_symbol(
+    l: int,
+    q: int,
+    index: int,
+) -> smpq.Operator:
     """
     Build a symbolic spherical tensor operator.
 
@@ -921,7 +1013,11 @@ def op_T_symbol(l, q, index):
     """
     return smpq.Operator(f'\\hat{{T}}_{{{l}{q}}}^{{({index})}}')
 
-def product_op_T_symbol(ls, qs, indices):
+def product_op_T_symbol(
+    ls: list[int],
+    qs: list[int],
+    indices: list[int],
+) -> smp.Expr:
     """
     Build a symbolic product of spherical tensor operators.
 
@@ -944,7 +1040,7 @@ def product_op_T_symbol(ls, qs, indices):
         product_op_T *= op_T_symbol(l, q, index)
     return product_op_T
 
-def expectation_value(op_symbol):
+def expectation_value(op_symbol: smp.Expr) -> smp.Symbol:
     """
     Build the symbolic expectation value of an operator.
 
@@ -960,7 +1056,7 @@ def expectation_value(op_symbol):
     """
     return smp.Symbol('\\langle ' + str(op_symbol) + '\\rangle')
 
-def f_expectation_value_t(op_symbol):
+def f_expectation_value_t(op_symbol: smp.Expr) -> smp.Function:
     """
     Build the symbolic, time-dependent expectation value of an operator.
 
@@ -980,7 +1076,7 @@ def f_expectation_value_t(op_symbol):
 # Spin operators (Zeeeman basis).
 ####################################################################################################
 # Matrix representations:
-def op_Sx(S):
+def op_Sx(S: float) -> smp.Matrix:
     """
     Build the spin angular momentum operator in the x-direction.
 
@@ -1006,7 +1102,7 @@ def op_Sx(S):
 
     return smp.Matrix(Sx.T, complex=True).applyfunc(smp.nsimplify)
 
-def op_Sy(S):
+def op_Sy(S: float) -> smp.Matrix:
     """
     Build the spin angular momentum operator in the y-direction.
 
@@ -1032,7 +1128,7 @@ def op_Sy(S):
 
     return smp.Matrix(Sy.T, complex=True).applyfunc(smp.nsimplify)
 
-def op_Sz(S):
+def op_Sz(S: float) -> smp.Matrix:
     """
     Build the spin angular momentum operator in the z-direction.
 
@@ -1055,7 +1151,7 @@ def op_Sz(S):
 
     return smp.Matrix(Sz.T, complex=True).applyfunc(smp.nsimplify)
 
-def op_Sp(S):
+def op_Sp(S: float) -> smp.Matrix:
     """
     Build the spin angular momentum raising operator.
 
@@ -1071,7 +1167,7 @@ def op_Sp(S):
     """
     return op_Sx(S) + smp.I * op_Sy(S)
 
-def op_Sm(S):
+def op_Sm(S: float) -> smp.Matrix:
     """
     Build the spin angular momentum lowering operator.
 
@@ -1087,7 +1183,7 @@ def op_Sm(S):
     """
     return op_Sx(S) - smp.I * op_Sy(S)
 
-def op_Svec(S):
+def op_Svec(S: float) -> list[smp.Matrix]:
     """
     Build the Cartesian spin angular momentum vector operator.
 
@@ -1108,7 +1204,7 @@ def op_Svec(S):
 # NOTE: These functions use dictionaries of the form {(l, q): T_lq} for spherical tensors.
 ####################################################################################################
 # Classical spherical tensors:
-def vector_to_spherical_tensor(vector):
+def vector_to_spherical_tensor(vector: list) -> dict:
     """
     Convert a Cartesian vector to a classical spherical tensor of rank 1.
 
@@ -1129,7 +1225,11 @@ def vector_to_spherical_tensor(vector):
     return {(1, -1): T_m1, (1, 0): T_0, (1, 1): T_p1}
 
 # Spherical tensor operators:
-def op_T(S, l, q):
+def op_T(
+    S: float,
+    l: int,
+    q: int,
+) -> smp.MatrixBase | int:
     """
     Build the spherical tensor operator of spin quantum number S, rank l and
     projection q, obtained by sequential lowering of the maximum-projection
@@ -1152,7 +1252,10 @@ def op_T(S, l, q):
         Spherical tensor operator ``T_lq`` for spin quantum number `S`, or 0
         if `l` or `q` are outside their allowed ranges.
     """
-    def op_T_ll(S, l):
+    def op_T_ll(
+        S: float,
+        l: int,
+    ) -> smp.MatrixBase | int:
         """
         Build the spherical tensor operator of spin quantum number S, rank l
         and maximum projection q = l.
@@ -1187,7 +1290,12 @@ def op_T(S, l, q):
 
 # Coupling of spherical tensor operators.
 # NOTE: Used for bilinear contributions in the relaxation superoperator.
-def op_T_coupled_lq(T1_dict, T2_dict, l, q):
+def op_T_coupled_lq(
+    T1_dict: dict,
+    T2_dict: dict,
+    l: int,
+    q: int,
+) -> smp.MatrixBase:
     """
     Build the coupled spherical tensor operator of rank l and projection q,
     obtained by coupling two rank-1 spherical tensors via Clebsch-Gordan coefficients.
@@ -1219,7 +1327,7 @@ def op_T_coupled_lq(T1_dict, T2_dict, l, q):
 # NOTE: Function inputs "op" have to be in Hilbert space, apart from "de" functions.
 ####################################################################################################
 # Vectorizations:
-def vectorize(op):
+def vectorize(op: smp.MatrixBase) -> smp.Matrix:
     """
     Vectorize a matrix into a Liouville-space (super)vector.
 
@@ -1238,7 +1346,7 @@ def vectorize(op):
     """
     return smp.Matrix(np.array(op).flatten())
 
-def vectorize_all(ops):
+def vectorize_all(ops: list[smp.MatrixBase]) -> list[smp.Matrix]:
     """
     Vectorize a list of matrices into Liouville-space (super)vectors.
 
@@ -1255,7 +1363,7 @@ def vectorize_all(ops):
     return [vectorize(op) for op in ops]
 
 # Liouville-space matrix representations:
-def sop_rmul(op):
+def sop_rmul(op: smp.MatrixBase) -> smp.MatrixBase:
     """
     Build the right-multiplication superoperator of a Hilbert-space operator.
 
@@ -1271,7 +1379,7 @@ def sop_rmul(op):
     """
     return KroneckerProduct(smp.eye(op.shape[0]), op.T)
 
-def sop_lmul(op):
+def sop_lmul(op: smp.MatrixBase) -> smp.MatrixBase:
     """
     Build the left-multiplication superoperator of a Hilbert-space operator.
 
@@ -1287,7 +1395,7 @@ def sop_lmul(op):
     """
     return KroneckerProduct(op, smp.eye(op.shape[0]))
 
-def sop_commutator(op):
+def sop_commutator(op: smp.MatrixBase) -> smp.MatrixBase:
     """
     Build the commutation superoperator of a Hilbert-space operator.
 
@@ -1303,7 +1411,10 @@ def sop_commutator(op):
     """
     return sop_lmul(op) - sop_rmul(op)
 
-def sop_double_commutator(op1, op2):
+def sop_double_commutator(
+    op1: smp.MatrixBase,
+    op2: smp.MatrixBase,
+) -> smp.MatrixBase:
     """
     Build the double-commutation superoperator of two Hilbert-space operators.
 
@@ -1322,7 +1433,10 @@ def sop_double_commutator(op1, op2):
     """
     return sop_commutator(op1) @ sop_commutator(op2)
 
-def sop_D(op1, op2):
+def sop_D(
+    op1: smp.MatrixBase,
+    op2: smp.MatrixBase,
+) -> smp.MatrixBase:
     """
     Build the Lindbladian dissipation superoperator of two Hilbert-space operators.
 
@@ -1344,7 +1458,11 @@ def sop_D(op1, op2):
 ####################################################################################################
 # Spin operator classes.
 ####################################################################################################
-def many_spin_operator(S, single_spin_operator, spin_index):
+def many_spin_operator(
+    S: list[float],
+    single_spin_operator: smp.MatrixBase,
+    spin_index: int,
+) -> smp.MatrixBase:
     """
     Embed a single-spin operator into the full Hilbert space of a many-spin system.
 
@@ -1408,7 +1526,10 @@ class SpinOperators:
     ValueError
         If `spinsystem` is not a list of strings.
     """
-    def __init__(self, spinsystem):
+    def __init__(
+        self,
+        spinsystem: list[str],
+    ) -> None:
         """
         Initialise the spin system and generate its Cartesian and spherical
         tensor spin operators (and their symbols).
@@ -1439,7 +1560,7 @@ class SpinOperators:
         self.gen_many_spin_T_operators()
         self.gen_T_operator_symbols()
 
-    def gen_N_states(self):
+    def gen_N_states(self) -> None:
         """
         Generate the number of Hilbert-space states in the spin system and
         store it in `self.N_states`.
@@ -1449,7 +1570,7 @@ class SpinOperators:
             self.N_states *= int(2*self.S[i] + 1)
 
     # Cartesian spin operators
-    def gen_many_spin_cartesian_operators(self):
+    def gen_many_spin_cartesian_operators(self) -> None:
         """
         Generate the many-spin Cartesian spin operators and store them in
         `self.E`, `self.Sx`, `self.Sy`, `self.Sz`, `self.Sp` and `self.Sm`.
@@ -1461,7 +1582,7 @@ class SpinOperators:
         self.Sp = [many_spin_operator(self.S, op_Sp(S), i) for i, S in enumerate(self.S)]
         self.Sm = [many_spin_operator(self.S, op_Sm(S), i) for i, S in enumerate(self.S)]
 
-    def gen_cartesian_operator_symbols(self):
+    def gen_cartesian_operator_symbols(self) -> None:
         """
         Generate the Cartesian spin operator symbols and store them in
         `self.E_symbol`, `self.Sx_symbol`, `self.Sy_symbol`, `self.Sz_symbol`,
@@ -1475,12 +1596,12 @@ class SpinOperators:
         self.Sm_symbol = [op_S_symbol('-', i+1) for i in range(self.N_spins)]
 
     # Spherical tensor operators
-    def gen_many_spin_T_operators(self):
+    def gen_many_spin_T_operators(self) -> None:
         """
         Generate the many-spin spherical tensor operators and store them in `self.T`.
         """
 
-        def gen_T_operators(S):
+        def gen_T_operators(S: float) -> dict:
             """
             Generate the single-spin spherical tensor operators for a given
             spin quantum number.
@@ -1503,7 +1624,7 @@ class SpinOperators:
         self.T = [{(l, q): many_spin_operator(self.S, T_lq, i) for (l, q), T_lq in T.items()}
                   for i, T in enumerate(self.T)]
 
-    def gen_T_operator_symbols(self):
+    def gen_T_operator_symbols(self) -> None:
         """
         Generate the spherical tensor operator symbols and store them in `self.T_symbol`.
         """
@@ -1521,7 +1642,7 @@ class SpinOperators:
 # survives the later ones. See the notes on the individual sorting functions.
 ####################################################################################################
 # Product basis of Cartesian spin operators
-def Cartesian_product_basis(SpinOperators):
+def Cartesian_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr]]:
     """
     Generate the direct product basis of Cartesian spin operators.
 
@@ -1570,7 +1691,7 @@ def Cartesian_product_basis(SpinOperators):
     Cartesian_product_basis = [Cartesian_product_basis[i] / norms[i] for i in range(len(Cartesian_product_basis))]
     return Cartesian_product_basis, norms
 
-def Cartesian_product_basis_symbols(SpinOperators):
+def Cartesian_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Expr]:
     """
     Generate the direct product basis symbols of Cartesian spin operators.
 
@@ -1616,7 +1737,8 @@ def Cartesian_product_basis_symbols(SpinOperators):
         Cartesian_product_basis_symbols.append(Cartesian_product_symbol)
     return Cartesian_product_basis_symbols
 
-def Cartesian_product_basis_and_symbols(SpinOperators):
+def Cartesian_product_basis_and_symbols(
+        SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Generate the direct product basis of Cartesian spin operators together with their symbols.
 
@@ -1642,7 +1764,7 @@ def Cartesian_product_basis_and_symbols(SpinOperators):
     return Cartesian_prod_basis, Cartesian_prod_basis_symbols, norms
 
 # Product basis of spherical tensor operators
-def T_product_basis(SpinOperators):
+def T_product_basis(SpinOperators: SpinOperators) -> tuple[list[smp.MatrixBase], list[smp.Expr]]:
     """
     Generate the direct product basis of spherical tensor operators.
 
@@ -1688,7 +1810,7 @@ def T_product_basis(SpinOperators):
     T_product_basis = [T_product_basis[i] / norms[i] for i in range(len(T_product_basis))]
     return T_product_basis, norms
 
-def T_product_basis_symbols(SpinOperators):
+def T_product_basis_symbols(SpinOperators: SpinOperators) -> list[smp.Expr]:
     """
     Generate the direct product basis symbols of spherical tensor operators.
 
@@ -1733,7 +1855,11 @@ def T_product_basis_symbols(SpinOperators):
 
 # Basis set sorting
 # NOTE: There are multiple ways to do the sorting, and it is fairly arbitrary. These are just two possibilities.
-def T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
+def T_basis_split_to_coherence_orders(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+) -> tuple[dict, dict, dict]:
     """
     Split a basis of spherical tensor operators into groups of equal coherence order.
 
@@ -1773,7 +1899,11 @@ def T_basis_split_to_coherence_orders(T_product_basis, T_product_basis_symbols, 
     return T_basis_groups, T_symbol_groups, T_norm_groups
 
 # NOTE: Functions below have the same input and return structure as spin_order_sort_T_product_basis.
-def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
+def spin_order_sort_T_product_basis(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Sort the product basis of spherical tensor operators by spin order.
 
@@ -1800,7 +1930,11 @@ def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_
             [T_product_basis_symbols[i] for i in sorting],
             [T_product_basis_norms[i] for i in sorting])
 
-def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
+def coherence_order_sort_T_product_basis(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Sort the product basis of spherical tensor operators by coherence order.
 
@@ -1812,7 +1946,11 @@ def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbol
             [T_product_basis_symbols[i] for i in sorting],
             [T_product_basis_norms[i] for i in sorting])
 
-def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
+def type_sort_T_product_basis(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Sort the product basis of spherical tensor operators by type (population or coherence).
 
@@ -1827,7 +1965,12 @@ def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_produc
             [T_product_basis_symbols[i] for i in sorting],
             [T_product_basis_norms[i] for i in sorting])
 
-def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, spin_index):
+def projection_sort_T_product_basis(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+    spin_index: int,
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Sort the product basis of spherical tensor operators by the projection (q)
     of the operator acting on the specified spin.
@@ -1867,13 +2010,17 @@ def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_
 
     return T_product_basis_NEW, T_product_basis_symbols_NEW, T_product_basis_norms_NEW
 
-def identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
+def identity_first_sort_T_product_basis(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Move the identity operator to the first position in the product basis.
 
     See `spin_order_sort_T_product_basis` for the parameter and return structure.
     """
-    def move_identity_to_front(lst):
+    def move_identity_to_front(lst: list) -> list:
         """
         Move the element at the identity operator's position to the front of a list.
 
@@ -1899,7 +2046,12 @@ def identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols
             move_identity_to_front(T_product_basis_norms))
 
 # Quick sorting that combines the functions above.
-def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, sorting='v1'):
+def full_sort_T_product_basis(
+    T_product_basis: list[smp.MatrixBase],
+    T_product_basis_symbols: list[smp.Expr],
+    T_product_basis_norms: list[smp.Expr],
+    sorting: str='v1',
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Fully sort the product basis of spherical tensor operators.
 
@@ -1957,7 +2109,10 @@ def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_produc
 
     return T_product_basis, T_product_basis_symbols, T_product_basis_norms
 
-def T_product_basis_and_symbols(SpinOperators, sorting='v1'):
+def T_product_basis_and_symbols(
+    SpinOperators: SpinOperators,
+    sorting: str | None='v1',
+) -> tuple[list[smp.MatrixBase], list[smp.Expr], list[smp.Expr]]:
     """
     Generate and sort the product basis of spherical tensor operators, together with their symbols.
 
@@ -2011,7 +2166,10 @@ class Operator:
         If `op` is not a SymPy matrix.
     """
 
-    def __init__(self, op):
+    def __init__(
+        self,
+        op: smp.MatrixBase,
+    ) -> None:
         """
         Initialise the operator and extract its symbols and functions.
 
@@ -2031,7 +2189,10 @@ class Operator:
         self.functions_in = self.get_functions()
 
     # Matrix algebra
-    def to_basis(self, basis):
+    def to_basis(
+        self,
+        basis: list[smp.MatrixBase],
+    ) -> None:
         """
         Convert `self.op` to a different basis.
 
@@ -2043,7 +2204,7 @@ class Operator:
         self.op = op_change_of_basis(self.op, basis)
 
     # Symbols, functions and substitutions
-    def get_symbols(self):
+    def get_symbols(self) -> list[smp.Symbol]:
         """
         Get the symbols appearing in `self.op`.
 
@@ -2054,7 +2215,7 @@ class Operator:
         """
         return sorted(list(self.op.free_symbols), key=lambda x: str(x))
 
-    def get_functions(self):
+    def get_functions(self) -> list[smp.Function]:
         """
         Get the functions appearing in `self.op`.
 
@@ -2065,7 +2226,10 @@ class Operator:
         """
         return sorted(list(self.op.atoms(smp.Function)), key=lambda x: str(x))
 
-    def substitute(self, substitutions_dict):
+    def substitute(
+        self,
+        substitutions_dict: dict,
+    ) -> None:
         """
         Substitute symbols and functions in `self.op` with numerical values.
 
@@ -2084,7 +2248,13 @@ class Operator:
         self.functions_in = self.get_functions()
 
     # Visualization
-    def visualize(self, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
+    def visualize(
+        self,
+        rows_start: int=0,
+        rows_end: int | None=None,
+        basis_symbols: list[smp.Expr] | None=None,
+        fontsize: int=8,
+    ) -> None:
         """
         Visualize `self.op`. See `visualize_operator` for more information.
 
@@ -2108,7 +2278,10 @@ class Superoperator(Operator):
 
     See `Operator` for more information.
     """
-    def __init__(self, sop):
+    def __init__(
+        self,
+        sop: smp.MatrixBase,
+    ) -> None:
         """
         Initialise the superoperator and extract its symbols and functions.
 
@@ -2120,7 +2293,10 @@ class Superoperator(Operator):
         super().__init__(sop)
 
     # Change of basis for superoperators
-    def to_basis(self, basis):
+    def to_basis(
+        self,
+        basis: list[smp.MatrixBase],
+    ) -> None:
         """
         Convert `self.op` to a different basis.
 
@@ -2138,7 +2314,12 @@ class Superoperator(Operator):
 ####################################################################################################
 # Spectral density functions and relaxation constants.
 ####################################################################################################
-def Lorentzian(w, tau_c, fast_motion_limit=False, slow_motion_limit=False):
+def Lorentzian(
+    w: smp.Expr,
+    tau_c: smp.Expr,
+    fast_motion_limit: bool=False,
+    slow_motion_limit: bool=False,
+) -> smp.Expr:
     """
     Evaluate a Lorentzian function (normalized to `tau_c` at w = 0), used for
     spectral density functions.
@@ -2170,7 +2351,7 @@ def Lorentzian(w, tau_c, fast_motion_limit=False, slow_motion_limit=False):
         else:
             return tau_c / (1 + (w * tau_c)**2)
 
-def Schofield_theta(w):
+def Schofield_theta(w: smp.Expr) -> smp.Expr:
     """
     Evaluate the Schofield thermal correction factor used in the quantum
     mechanical spectral density function.
@@ -2189,7 +2370,12 @@ def Schofield_theta(w):
     """
     return smp.exp(-beta * w / 2)
 
-def J_w(intr1, intr2, l, argument):
+def J_w(
+    intr1: str,
+    intr2: str,
+    l: int,
+    argument: smp.Expr,
+) -> smp.Expr:
     """
     Build the symbolic spectral density function J(w) for a pair of interactions.
 
@@ -2223,8 +2409,14 @@ def J_w(intr1, intr2, l, argument):
     elif settings.RELAXATION_THEORY == 'qm':
         return expr * Schofield_theta(argument)
 
-def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
-                                       fast_motion_limit=False, slow_motion_limit=False):
+def J_w_isotropic_rotational_diffusion(
+    intr1: str,
+    intr2: str,
+    l: int,
+    argument: smp.Expr,
+    fast_motion_limit: bool=False,
+    slow_motion_limit: bool=False,
+) -> smp.Expr:
     """
     Build the isotropic rotational diffusion spectral density function, which
     takes the form of a Lorentzian function.
@@ -2261,7 +2453,7 @@ def J_w_isotropic_rotational_diffusion(intr1, intr2, l, argument,
     return J_w
     
 # Helper functions for RelaxationSuperoperator object
-def extract_J_w_symbols_and_args(J):
+def extract_J_w_symbols_and_args(J: smp.Function) -> tuple[tuple[str, ...], tuple[int, ...], smp.Expr]:
     """
     Extract the interaction names, (l, q) indices and argument encoded in a
     spectral density function symbol J(w) (or G(0) in the case of isotropic
@@ -2299,7 +2491,11 @@ def extract_J_w_symbols_and_args(J):
 # NOTE: alpha is single-spin interaction and beta is two-spin interaction.
 # See https://doi.org/10.1016/j.jmr.2024.107828)
 ####################################################################################################
-def sop_R_term(op_T_left, J_w, op_T_right):
+def sop_R_term(
+    op_T_left: smp.MatrixBase,
+    J_w: smp.Expr,
+    op_T_right: smp.MatrixBase,
+) -> smp.MatrixBase:
     """
     Build a single term in the sum defining the relaxation superoperator,
     schematically T * J(w) * T^dagger.
@@ -2329,9 +2525,17 @@ def sop_R_term(op_T_left, J_w, op_T_right):
         return -J_w * sop_D(op_T_left.H, op_T_right)
 
 # NOTE: The functions below have the same input and return structure as sop_R_term_alpha_alpha.
-def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_name,
-                           op_T_left, op_T_right,
-                           keep_non_secular=False):
+def sop_R_term_alpha_alpha(
+    l: int,
+    q: int,
+    alpha1: str,
+    alpha2: str,
+    alpha1_spin_name: str,
+    alpha2_spin_name: str,
+    op_T_left: smp.MatrixBase,
+    op_T_right: smp.MatrixBase,
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
     """
     Build the term in the relaxation superoperator between two single-spin interactions.
 
@@ -2391,9 +2595,19 @@ def sop_R_term_alpha_alpha(l, q, alpha1, alpha2, alpha1_spin_name, alpha2_spin_n
 
         return sop_R_term(op_T_left, J, op_T_right)
 
-def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_name1, beta_spin_name2,
-                          op_T_left, op_T_right,
-                          keep_non_secular=False):
+def sop_R_term_alpha_beta(
+    l: int,
+    q1: int,
+    q2: int,
+    alpha: str,
+    beta: str,
+    alpha_spin_name: str,
+    beta_spin_name1: str,
+    beta_spin_name2: str,
+    op_T_left: smp.MatrixBase,
+    op_T_right: smp.MatrixBase,
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
     """
     Build the term in the relaxation superoperator between a single-spin
     interaction and a two-spin interaction.
@@ -2454,9 +2668,19 @@ def sop_R_term_alpha_beta(l, q1, q2, alpha, beta, alpha_spin_name, beta_spin_nam
 
         return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
 
-def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_name2, alpha_spin_name,
-                          op_T_left, op_T_right,
-                          keep_non_secular=False):
+def sop_R_term_beta_alpha(
+    l: int,
+    q1: int,
+    q2: int,
+    beta: str,
+    alpha: str,
+    beta_spin_name1: str,
+    beta_spin_name2: str,
+    alpha_spin_name: str,
+    op_T_left: smp.MatrixBase,
+    op_T_right: smp.MatrixBase,
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
     """
     Build the term in the relaxation superoperator between a two-spin
     interaction and a single-spin interaction.
@@ -2488,10 +2712,22 @@ def sop_R_term_beta_alpha(l, q1, q2, beta, alpha, beta_spin_name1, beta_spin_nam
 
         return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1, 1, q2, l, (q1+q2)).doit()
 
-def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
-                         beta1_spin_name1, beta1_spin_name2, beta2_spin_name1, beta2_spin_name2,
-                         op_T_left, op_T_right,
-                         keep_non_secular=False):
+def sop_R_term_beta_beta(
+    l: int,
+    q1_t1: int,
+    q2_t1: int,
+    q1_t2: int,
+    q2_t2: int,
+    beta1: str,
+    beta2: str,
+    beta1_spin_name1: str,
+    beta1_spin_name2: str,
+    beta2_spin_name1: str,
+    beta2_spin_name2: str,
+    op_T_left: smp.MatrixBase,
+    op_T_right: smp.MatrixBase,
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
     """
     Build the term in the relaxation superoperator between two two-spin interactions.
 
@@ -2560,8 +2796,11 @@ def sop_R_term_beta_beta(l, q1_t1, q2_t1, q1_t2, q2_t2, beta1, beta2,
         return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_t1, 1, q2_t1, l, (q1_t1+q2_t1)).doit()\
                                                     * CG(1, q1_t2, 1, q2_t2, l, (q1_t2+q2_t2)).doit()
 
-def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
-          keep_non_secular=False):
+def sop_R(
+    SpinOperators: SpinOperators,
+    INCOHERENT_INTERACTIONS: dict,
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
     """
     Compute the matrix representation of the relaxation superoperator in Liouville space.
 
@@ -2857,7 +3096,12 @@ class RelaxationSuperoperator(Superoperator):
     basis_norms : list of sympy.Expr
         Liouville norms of the (unnormalized) basis operators.
     """
-    def __init__(self, sop_R, basis_symbols, basis_norms):
+    def __init__(
+        self,
+        sop_R: smp.MatrixBase,
+        basis_symbols: list[smp.Expr],
+        basis_norms: list[smp.Expr],
+    ) -> None:
         """
         Initialise the relaxation superoperator.
 
@@ -2874,7 +3118,7 @@ class RelaxationSuperoperator(Superoperator):
         self.basis_symbols = basis_symbols
         self.basis_norms = basis_norms
 
-    def to_observables(self):
+    def to_observables(self) -> None:
         """
         Fix the basis operator normalization in `self.op`, in order to obtain
         the correct relaxation rates and equations of motion of observables.
@@ -2891,7 +3135,11 @@ class RelaxationSuperoperator(Superoperator):
         # Simplify the relaxation superoperator.
         self.op = smp.simplify(rescaled)
 
-    def rate(self, spin_index_op_index_1, spin_index_op_index_2=None):
+    def rate(
+        self,
+        spin_index_op_index_1: str,
+        spin_index_op_index_2: str | None=None,
+    ) -> smp.Expr | None:
         """
         Get the relaxation rate between two basis operators.
 
@@ -2940,7 +3188,11 @@ class RelaxationSuperoperator(Superoperator):
 
         return self.op[index_1, index_2]
 
-    def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
+    def to_isotropic_rotational_diffusion(
+        self,
+        fast_motion_limit: bool=False,
+        slow_motion_limit: bool=False,
+    ) -> None:
         """
         Substitute every J(w) function in the relaxation superoperator with
         the isotropic rotational diffusion spectral density function.
@@ -2964,7 +3216,11 @@ class RelaxationSuperoperator(Superoperator):
                                     fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
         self.substitute(subst_dict)
 
-    def neglect_cross_correlated_terms(self, mechanism1=None, mechanism2=None):
+    def neglect_cross_correlated_terms(
+        self,
+        mechanism1: str | None=None,
+        mechanism2: str | None=None,
+    ) -> None:
         """
         Neglect the cross-correlated terms between `mechanism1` and
         `mechanism2` in the relaxation superoperator.
@@ -3004,7 +3260,7 @@ class RelaxationSuperoperator(Superoperator):
                         if mechanism1 in str(J_w) and mechanism2 in str(J_w):
                             self.substitute({J_w: 0})
 
-    def neglect_cross_relaxation(self):
+    def neglect_cross_relaxation(self) -> None:
         """
         Neglect all cross-relaxation terms (off-diagonal elements) in the relaxation superoperator.
         """
@@ -3016,7 +3272,11 @@ class RelaxationSuperoperator(Superoperator):
         self.op = smp.Matrix(op.shape[0], op.shape[1],
                              lambda i, j: op[i, j] if i == j else 0)
 
-    def filter(self, filter_name, filter_value):
+    def filter(
+        self,
+        filter_name: str,
+        filter_value: int | list[int],
+    ) -> None:
         """
         Filter out regions of the relaxation superoperator based on given criteria.
 
@@ -3048,7 +3308,12 @@ class RelaxationSuperoperator(Superoperator):
 ####################################################################################################
 # Master equations.
 ####################################################################################################
-def equations_of_motion(R, basis_op_symbols, expectation_values=True, included_operators=None):
+def equations_of_motion(
+    R: smp.MatrixBase,
+    basis_op_symbols: list[smp.Expr],
+    expectation_values: bool=True,
+    included_operators: list[int] | None=None,
+) -> smp.Eq:
     """
     Build the system of differential equations resulting from the master
     equation of the relaxation theory set in `settings.RELAXATION_THEORY`.
@@ -3096,7 +3361,10 @@ def equations_of_motion(R, basis_op_symbols, expectation_values=True, included_o
     rhs = -R * rhs
     return smp.Eq(lhs, rhs, evaluate=False)
 
-def equations_of_motion_to_latex(eqs, savename):
+def equations_of_motion_to_latex(
+    eqs: smp.Eq,
+    savename: str,
+) -> None:
     """
     Convert a system of equations of motion to LaTeX and save it to file.
 
@@ -3126,8 +3394,13 @@ def equations_of_motion_to_latex(eqs, savename):
 ####################################################################################################
 # Combined functions.
 ####################################################################################################
-def R_object_in_prodop_basis(spinsystem, INCOHERENT_INTERACTIONS,
-                             basis='T', sorting='v1', keep_non_secular=False):
+def R_object_in_prodop_basis(
+    spinsystem: list[str],
+    INCOHERENT_INTERACTIONS: dict,
+    basis: str='T',
+    sorting: str | None='v1',
+    keep_non_secular: bool=False,
+) -> RelaxationSuperoperator:
     """
     Compute the relaxation superoperator, converted to a product operator
     basis, and return it as a `RelaxationSuperoperator` object.
