@@ -26,7 +26,9 @@ from sympy.physics.quantum.cg import CG
 # Rela2x specific
 from rela2x import settings
 from rela2x import nmr_isotopes
-from rela2x.constants_and_variables import *
+
+# NOTE: The remaining symbolic constants and variables are re-exported to the user by __init__.py.
+from rela2x.constants_and_variables import beta, t, tau_c
 
 ####################################################################################################
 # Settings and modes of the program.
@@ -236,7 +238,10 @@ def spin_quantum_numbers(isotopes):
 
 # Information extraction from spherical tensor operator symbols
 # NOTE: This is the basis that Rela2x uses as a default.
-# TODO: Smarter indexing system.
+# TODO: Smarter indexing system. The functions below recover the rank, projection and spin index
+# of an operator by parsing its printed LaTeX symbol, which couples this logic to the exact symbol
+# formatting and limits it to single-digit ranks and projections. Carrying the (l, q, spin index)
+# values alongside the basis would remove the parsing entirely.
 def T_symbol_spin_order(T_symbol):
     """
     Determine the spin order of a spherical tensor operator symbol, i.e. the
@@ -316,14 +321,20 @@ def T_symbol_Nth_spin_projection(T_symbol, N):
 
     Returns
     -------
-    str or int
+    int
         Projection q of the Nth spin if found in `T_symbol`, otherwise 0.
     """
     s = str(T_symbol)
-    pattern = r'\\hat\{T\}\_{([^}]*)}\^\{\('+str(N)+'\)\}'
+
+    # Match the operator acting on spin N and capture its combined {l}{q} index string.
+    pattern = r'\\hat\{T\}\_{([^}]*)}\^\{\(' + str(N) + r'\)\}'
     match = re.search(pattern, s)
+
+    # Strip the leading rank digit, leaving the projection q.
+    # NOTE: The projection is returned as an integer, so that the basis sorting compares
+    # projections numerically rather than lexicographically.
     if match:
-        return match.group(1)[1:]
+        return int(match.group(1)[1:])
     else:
         return 0
 
@@ -601,7 +612,7 @@ def type_filter(operator, basis_state_symbols, allowed_type):
         Filtered basis state symbols.
     """
     basis_types = [T_symbol_type(T_symbol) for T_symbol in basis_state_symbols]
-    indexes_to_delete = [i for i, type in enumerate(basis_types) if type != allowed_type]
+    indexes_to_delete = [i for i, basis_type in enumerate(basis_types) if basis_type != allowed_type]
     unique_indexes_to_delete = list(set(indexes_to_delete))
     return cut_matrix(operator, unique_indexes_to_delete), cut_list(basis_state_symbols, unique_indexes_to_delete)
 
@@ -661,7 +672,7 @@ def all_combinations(N, *args, reverse=False):
 
 ####################################################################################################
 # Visualization tools.
-# TODO: Search for cases where the functions do not work as intended.
+# NOTE: Requesting an empty section, i.e. rows_start equal to rows_end, raises from inside NumPy.
 ####################################################################################################
 def matrix_nonzeros(matrix):
     """
@@ -679,28 +690,28 @@ def matrix_nonzeros(matrix):
     """
     return matrix.applyfunc(lambda x: 1 if x != 0 else 0)
 
-def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
+def _plot_nonzero_pattern(operator_nonzeros, rows_start=0, rows_end=None,
+                          basis_symbols=None, fontsize=8):
     """
-    Visualize a given operator (its matrix representation) as a nonzero-element plot.
+    Draw the nonzero-element pattern of an operator as a matrix plot.
 
-    NOTE: Apart from basic plotting, this is mostly intended for pretty
-    visualization purposes. The plot is shown automatically.
+    NOTE: Internal helper shared by `visualize_operator` and `visualize_many_operators`,
+    which differ only in how the array of nonzero counts is assembled.
 
     Parameters
     ----------
-    operator : sympy.Matrix
-        Operator to be visualized.
+    operator_nonzeros : numpy.ndarray
+        Array of nonzero counts, already restricted to the rows and columns to be drawn.
     rows_start : int, optional
-        Starting row/column index for the visualization. Default is 0.
+        Starting row/column index of the visualized section, used to align `basis_symbols`
+        with the drawn rows. Default is 0.
     rows_end : int, optional
-        Ending row/column index for the visualization. Default is None (last index).
+        Ending row/column index of the visualized section. Default is None (last index).
     basis_symbols : list of sympy.Symbol, optional
         Basis operator symbols, drawn as a legend for the basis states. Default is None.
     fontsize : int, optional
         Font size for the basis symbol labels. Default is 8.
     """
-    operator = operator[rows_start:rows_end, rows_start:rows_end]
-    operator_nonzeros = np.array(matrix_nonzeros(operator), dtype=np.float32)
 
     # Increase font size for small matrices
     if operator_nonzeros.shape[0] < 16:
@@ -762,6 +773,13 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
     # Add basis symbols next to y tick labels if given
     elif basis_symbols is not None:
         basis_symbols = basis_symbols[rows_start:rows_end]
+
+        # Check that the symbols describe the section being drawn.
+        if len(basis_symbols) != operator_nonzeros.shape[0]:
+            raise ValueError(f"Got {len(basis_symbols)} basis symbols for a section with "
+                             f"{operator_nonzeros.shape[0]} rows. The basis symbols must "
+                             f"correspond to the operator being visualized.")
+
         basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
         basis_symbols = [f'{label}{" " * (5 - len(str(i + 1)))}{i + 1}' for i, label in enumerate(basis_symbols)]
 
@@ -778,6 +796,34 @@ def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None
 
     plt.tight_layout()
     plt.show()
+
+def visualize_operator(operator, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
+    """
+    Visualize a given operator (its matrix representation) as a nonzero-element plot.
+
+    NOTE: Apart from basic plotting, this is mostly intended for pretty
+    visualization purposes. The plot is shown automatically.
+
+    Parameters
+    ----------
+    operator : sympy.Matrix
+        Operator to be visualized.
+    rows_start : int, optional
+        Starting row/column index for the visualization. Default is 0.
+    rows_end : int, optional
+        Ending row/column index for the visualization. Default is None (last index).
+    basis_symbols : list of sympy.Symbol, optional
+        Basis operator symbols, drawn as a legend for the basis states. Default is None.
+    fontsize : int, optional
+        Font size for the basis symbol labels. Default is 8.
+    """
+
+    # Restrict the operator to the section to be drawn and mark its nonzero elements.
+    operator = operator[rows_start:rows_end, rows_start:rows_end]
+    operator_nonzeros = np.array(matrix_nonzeros(operator), dtype=np.float32)
+
+    _plot_nonzero_pattern(operator_nonzeros, rows_start=rows_start, rows_end=rows_end,
+                          basis_symbols=basis_symbols, fontsize=fontsize)
 
 def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbols=None, fontsize=8):
     """
@@ -801,86 +847,15 @@ def visualize_many_operators(operators, rows_start=0, rows_end=None, basis_symbo
     fontsize : int, optional
         Font size for the basis symbol labels. Default is 8.
     """
+
+    # Restrict each operator to the section to be drawn and sum their nonzero patterns.
     operators = [operator[rows_start:rows_end, rows_start:rows_end] for operator in operators]
-    operators_nonzeros = [np.array(matrix_nonzeros(operator), dtype=np.float32) for operator in operators]
+    operators_nonzeros = [np.array(matrix_nonzeros(operator), dtype=np.float32)
+                          for operator in operators]
     operator_nonzeros = np.sum(operators_nonzeros, axis=0)
 
-    # Increase font size for small matrices
-    if operator_nonzeros.shape[0] < 16:
-        fontsize += 2
-
-    # Create the plot with a suitable size
-    if operator_nonzeros.shape[0] <= 16:
-        _, ax = plt.subplots(figsize=(4, 4), dpi=150)
-    else:
-        _, ax = plt.subplots(figsize=(6, 6), dpi=150)
-
-    # Create color map for the nonzeros
-    norm = plt.Normalize(0, np.amax(operator_nonzeros))
-    cmap = plt.cm.Blues
-
-    # Plot the nonzeros
-    ax.imshow(operator_nonzeros, cmap=cmap, alpha=0.9, norm=norm)
-
-    # Shift the grid
-    ax.set_xticks(np.arange(-.5, operator_nonzeros.shape[1], 1), minor=True)
-    ax.set_yticks(np.arange(-.5, operator_nonzeros.shape[0], 1), minor=True)
-    if operator_nonzeros.shape[0] <= 64:
-        ax.grid(which='minor', color='gray', linestyle='-', linewidth=1)
-    elif operator_nonzeros.shape[0] <= 128:
-        ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5)
-    else:
-        ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.2)
-
-    # Move x-axis ticks to the top
-    ax.xaxis.tick_top()
-
-    # Add tick labels if basis symbols are not given
-    if basis_symbols is None:
-        # Set major ticks to start from 1
-        # Include only every second or fourth tick if the matrix is large
-        if operator_nonzeros.shape[0] <= 16:
-            ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
-            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
-            ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
-            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1))
-        elif operator_nonzeros.shape[0] <= 64:
-            ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 2))
-            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 2))
-            ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1, 2))
-            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 2))
-        else:
-            ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 4))
-            ax.set_xticklabels([])
-            ax.set_yticklabels(np.arange(1, operator_nonzeros.shape[0] + 1, 4))
-
-        # Apply font size to ticks
-        if operator_nonzeros.shape[0] <= 16:
-            ax.tick_params(axis='both', which='major', labelsize=fontsize)
-        elif operator_nonzeros.shape[0] <= 64:
-            ax.tick_params(axis='both', which='major', labelsize=fontsize + 1)
-        else:
-            ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
-
-    # Add basis symbols next to y tick labels if given
-    elif basis_symbols is not None:
-        basis_symbols = basis_symbols[rows_start:rows_end]
-        basis_symbols = [f'${symbol}$'.replace('*', '').replace(' ', '') for symbol in basis_symbols]
-        basis_symbols = [f'{label}{" " * (5 - len(str(i + 1)))}{i + 1}' for i, label in enumerate(basis_symbols)]
-
-        ax.set_xticks(np.arange(0, operator_nonzeros.shape[1], 1))
-        ax.set_yticks(np.arange(0, operator_nonzeros.shape[0], 1))
-        ax.set_xticklabels(np.arange(1, operator_nonzeros.shape[1] + 1))
-        ax.set_yticklabels(basis_symbols)
-
-        # Apply font size to ticks
-        if operator_nonzeros.shape[0] <= 16:
-            ax.tick_params(axis='both', which='major', labelsize=fontsize)
-        else:
-            ax.tick_params(axis='both', which='major', labelsize=fontsize - 1)
-
-    plt.tight_layout()
-    plt.show()
+    _plot_nonzero_pattern(operator_nonzeros, rows_start=rows_start, rows_end=rows_end,
+                          basis_symbols=basis_symbols, fontsize=fontsize)
     
 ####################################################################################################
 # Symbolic operators and expectation values.
@@ -1347,8 +1322,6 @@ def sop_double_commutator(op1, op2):
     """
     return sop_commutator(op1) @ sop_commutator(op2)
 
-# TODO: Check that the definition is correct and consistent with literature.
-# For the moment this version gives the correct results.
 def sop_D(op1, op2):
     """
     Build the Lindbladian dissipation superoperator of two Hilbert-space operators.
@@ -1448,7 +1421,8 @@ class SpinOperators:
 
         # Check that the input is a list of strings.
         if not all(isinstance(isotope, str) for isotope in spinsystem):
-            raise ValueError("The spinsystem input has to be a list of strings corresponding to NMR isotopes (e.g. ['1H', '13C']).")
+            raise ValueError("The spinsystem input has to be a list of strings corresponding to "
+                             "NMR isotopes (e.g. ['1H', '13C']).")
 
         self.spinsystem = spinsystem
         self.S = spin_quantum_numbers(spinsystem)
@@ -1526,7 +1500,8 @@ class SpinOperators:
         self.T = [gen_T_operators(S) for S in self.S]
 
         # Overwrite the single-spin operators with their many-spin system versions.
-        self.T = [{(l, q): many_spin_operator(self.S, T_lq, i) for (l, q), T_lq in T.items()} for i, T in enumerate(self.T)]
+        self.T = [{(l, q): many_spin_operator(self.S, T_lq, i) for (l, q), T_lq in T.items()}
+                  for i, T in enumerate(self.T)]
 
     def gen_T_operator_symbols(self):
         """
@@ -1536,8 +1511,14 @@ class SpinOperators:
 
 ####################################################################################################
 # Basis operators for Liouville space.
-# TODO: Generation of the product basis operators should be simplified.
-# TODO: Generalize the basis operator sorting.
+# TODO: Generation of the product basis operators should be simplified. The Cartesian and spherical
+# tensor routines below duplicate the same combinatorial structure, differing only in the
+# single-spin operator set and in how the identity operator is labelled.
+# TODO: Generalize the basis operator sorting. The sorting passes are currently applied in a fixed
+# order by full_sort_T_product_basis; expressing them as a list of sort keys would make the
+# hierarchy explicit and remove the need for the hard-coded 'v1' and 'v2' variants.
+# NOTE: Every sorting pass must remain stable, so that the ordering established by earlier passes
+# survives the later ones. See the notes on the individual sorting functions.
 ####################################################################################################
 # Product basis of Cartesian spin operators
 def Cartesian_product_basis(SpinOperators):
@@ -1630,7 +1611,7 @@ def Cartesian_product_basis_symbols(SpinOperators):
 
         # Denote the identity operator as E
         if Cartesian_product_symbol == 1:
-            Cartesian_product_symbol = smpq.Operator(f'\\hat{{E}}')
+            Cartesian_product_symbol = smpq.Operator('\\hat{E}')
 
         Cartesian_product_basis_symbols.append(Cartesian_product_symbol)
     return Cartesian_product_basis_symbols
@@ -1745,7 +1726,7 @@ def T_product_basis_symbols(SpinOperators):
 
         # Denote the identity operator as E
         if T_product_symbol == 1:
-            T_product_symbol = smpq.Operator(f'\\hat{{E}}')
+            T_product_symbol = smpq.Operator('\\hat{E}')
 
         T_product_basis_symbols.append(T_product_symbol)
     return T_product_basis_symbols
@@ -1811,8 +1792,13 @@ def spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_
         Sorted ``(T_product_basis, T_product_basis_symbols, T_product_basis_norms)``.
     """
     spin_orders = [T_symbol_spin_order(op) for op in T_product_basis_symbols]
-    sorting = np.argsort(spin_orders)
-    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting], [T_product_basis_norms[i] for i in sorting]
+
+    # NOTE: A stable sort is required, so that any ordering established by a previous
+    # sorting pass is preserved among operators sharing the same spin order.
+    sorting = np.argsort(spin_orders, kind='stable')
+    return ([T_product_basis[i] for i in sorting],
+            [T_product_basis_symbols[i] for i in sorting],
+            [T_product_basis_norms[i] for i in sorting])
 
 def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
@@ -1822,7 +1808,9 @@ def coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbol
     """
     coherence_orders = [T_symbol_coherence_order(op) for op in T_product_basis_symbols]
     sorting = np.lexsort((coherence_orders, np.abs(coherence_orders)))
-    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting], [T_product_basis_norms[i] for i in sorting]
+    return ([T_product_basis[i] for i in sorting],
+            [T_product_basis_symbols[i] for i in sorting],
+            [T_product_basis_norms[i] for i in sorting])
 
 def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms):
     """
@@ -1831,8 +1819,13 @@ def type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_produc
     See `spin_order_sort_T_product_basis` for the parameter and return structure.
     """
     types = [T_symbol_type(op) for op in T_product_basis_symbols]
-    sorting = np.argsort(types)
-    return [T_product_basis[i] for i in sorting], [T_product_basis_symbols[i] for i in sorting], [T_product_basis_norms[i] for i in sorting]
+
+    # NOTE: A stable sort is required, so that any ordering established by a previous
+    # sorting pass is preserved among operators sharing the same type.
+    sorting = np.argsort(types, kind='stable')
+    return ([T_product_basis[i] for i in sorting],
+            [T_product_basis_symbols[i] for i in sorting],
+            [T_product_basis_norms[i] for i in sorting])
 
 def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, spin_index):
     """
@@ -1864,7 +1857,10 @@ def projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_
 
     for coherence_order, T_symbols in T_product_basis_coherence_order_symbols.items():
         projections = [T_symbol_Nth_spin_projection(T_symbol, spin_index) for T_symbol in T_symbols]
-        sorting = np.argsort(projections)
+
+        # NOTE: A stable sort is required, so that the ordering established by the sorting
+        # passes over the preceding spins is preserved among operators sharing a projection.
+        sorting = np.argsort(projections, kind='stable')
         T_product_basis_NEW += [T_product_basis_coherence_orders[coherence_order][i] for i in sorting]
         T_product_basis_symbols_NEW += [T_product_basis_coherence_order_symbols[coherence_order][i] for i in sorting]
         T_product_basis_norms_NEW += [T_product_basis_coherence_order_norms[coherence_order][i] for i in sorting]
@@ -1877,11 +1873,30 @@ def identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols
 
     See `spin_order_sort_T_product_basis` for the parameter and return structure.
     """
-    identity_index = [i for i, T_symbol in enumerate(T_product_basis_symbols) if '{E}' in str(T_symbol)][0]
-    T_product_basis_NEW = [T_product_basis[identity_index]] + T_product_basis[:identity_index] + T_product_basis[identity_index+1:]
-    T_product_basis_symbols_NEW = [T_product_basis_symbols[identity_index]] + T_product_basis_symbols[:identity_index] + T_product_basis_symbols[identity_index+1:]
-    T_product_basis_norms_NEW = [T_product_basis_norms[identity_index]] + T_product_basis_norms[:identity_index] + T_product_basis_norms[identity_index+1:]
-    return T_product_basis_NEW, T_product_basis_symbols_NEW, T_product_basis_norms_NEW
+    def move_identity_to_front(lst):
+        """
+        Move the element at the identity operator's position to the front of a list.
+
+        Parameters
+        ----------
+        lst : list
+            List ordered consistently with the product basis.
+
+        Returns
+        -------
+        list
+            The list with the identity element first and the rest in their original order.
+        """
+        return [lst[identity_index]] + lst[:identity_index] + lst[identity_index + 1:]
+
+    # Locate the identity operator among the basis symbols.
+    identity_index = [i for i, T_symbol in enumerate(T_product_basis_symbols)
+                      if '{E}' in str(T_symbol)][0]
+
+    # Reorder the basis, its symbols and its norms consistently.
+    return (move_identity_to_front(T_product_basis),
+            move_identity_to_front(T_product_basis_symbols),
+            move_identity_to_front(T_product_basis_norms))
 
 # Quick sorting that combines the functions above.
 def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, sorting='v1'):
@@ -1909,16 +1924,36 @@ def full_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_produc
         Sorted ``(T_product_basis, T_product_basis_symbols, T_product_basis_norms)``.
     """
     if sorting == 'v1':
-        T_product_basis, T_product_basis_symbols, T_product_basis_norms = type_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
-        T_product_basis, T_product_basis_symbols, T_product_basis_norms = spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
-        T_product_basis, T_product_basis_symbols, T_product_basis_norms = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = \
+            type_sort_T_product_basis(T_product_basis, T_product_basis_symbols,
+                                      T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = \
+            spin_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols,
+                                            T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = \
+            coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols,
+                                                 T_product_basis_norms)
 
     elif sorting == 'v2':
-        # Loop over all spins and sort by projection
-        for i in range(1, 10): # NOTE: This will always suffice for up to 10 spins
-            T_product_basis, T_product_basis_symbols, T_product_basis_norms = projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms, i)
-        T_product_basis, T_product_basis_symbols, T_product_basis_norms = coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
-        T_product_basis, T_product_basis_symbols, T_product_basis_norms = identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols, T_product_basis_norms)
+
+        # Determine the number of spins from the highest spin index appearing in the basis symbols.
+        # NOTE: Only spins that are actually present may be sorted over, because the projections
+        # of an absent spin are all equal and sorting by them would permute the basis arbitrarily.
+        spin_indices = [int(index) for symbol in T_product_basis_symbols
+                        for index in re.findall(r'\^\{\((\d+)\)\}', str(symbol))]
+        N_spins = max(spin_indices)
+
+        # Sort by the projection of each spin in turn.
+        for i in range(1, N_spins + 1):
+            T_product_basis, T_product_basis_symbols, T_product_basis_norms = \
+                projection_sort_T_product_basis(T_product_basis, T_product_basis_symbols,
+                                                T_product_basis_norms, i)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = \
+            coherence_order_sort_T_product_basis(T_product_basis, T_product_basis_symbols,
+                                                 T_product_basis_norms)
+        T_product_basis, T_product_basis_symbols, T_product_basis_norms = \
+            identity_first_sort_T_product_basis(T_product_basis, T_product_basis_symbols,
+                                                T_product_basis_norms)
 
     return T_product_basis, T_product_basis_symbols, T_product_basis_norms
 
@@ -1944,7 +1979,7 @@ def T_product_basis_and_symbols(SpinOperators, sorting='v1'):
     """
     basis, norms = T_product_basis(SpinOperators)
     symbols = T_product_basis_symbols(SpinOperators)
-    if sorting == None:
+    if sorting is None:
         return basis, symbols, norms
     else:
         return full_sort_T_product_basis(basis, symbols, norms, sorting=sorting)
@@ -1987,7 +2022,9 @@ class Operator:
         """
 
         # Check that the input is a SymPy matrix.
-        if not isinstance(op, smp.Matrix):
+        # NOTE: MatrixBase covers both the mutable and the immutable dense matrix types.
+        # SymPy operations such as simplify() return immutable matrices, so both occur in practice.
+        if not isinstance(op, smp.MatrixBase):
             raise ValueError("The operator input for the Operator class has to be a SymPy matrix.")
         self.op = op
         self.symbols_in = self.get_symbols()
@@ -2062,7 +2099,8 @@ class Operator:
         fontsize : int, optional
             Font size for the basis symbol labels. Default is 8.
         """
-        visualize_operator(self.op, rows_start=rows_start, rows_end=rows_end, basis_symbols=basis_symbols, fontsize=fontsize)
+        visualize_operator(self.op, rows_start=rows_start, rows_end=rows_end,
+                           basis_symbols=basis_symbols, fontsize=fontsize)
 
 class Superoperator(Operator):
     """
@@ -2613,8 +2651,10 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                                         elif properties2[0][1] == 'Q':
                                             T_right = SpinOperators.T[spin_2_index][l, q]
 
-                                        R_term = sop_R_term_alpha_alpha(l, q, intr_name1, intr_name2, spin_1_name, spin_2_name, T_left, T_right,
-                                                                        keep_non_secular=keep_non_secular)
+                                        R_term = sop_R_term_alpha_alpha(
+                                            l, q, intr_name1, intr_name2,
+                                            spin_1_name, spin_2_name, T_left, T_right,
+                                            keep_non_secular=keep_non_secular)
 
                                         # Add the relaxation superoperator term to the relaxation superoperator
                                         R_final += R_term
@@ -2635,7 +2675,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                 for spin_1_index, coupling_strength_1 in enumerate(coupling_strengths1):
                     if coupling_strength_1 != 0:
 
-                        for (spin_2_index_i, spin_2_index_j), coupling_strength_2 in np.ndenumerate(coupling_strengths_matrix2):
+                        for (spin_2_index_i, spin_2_index_j), coupling_strength_2 \
+                                in np.ndenumerate(coupling_strengths_matrix2):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
@@ -2657,7 +2698,9 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                                             if np.abs(q1 + q2) <= l:
 
                                                 if properties1[0][1] == 'L':
-                                                    T_left = op_T_coupled_lq(SpinOperators.T[spin_1_index], T_vector, l, (q1 + q2))
+                                                    T_left = op_T_coupled_lq(
+                                                        SpinOperators.T[spin_1_index],
+                                                        T_vector, l, (q1 + q2))
                                                 elif properties1[0][1] == 'Q':
                                                     T_left = SpinOperators.T[spin_1_index][l, (q1 + q2)]
 
@@ -2666,8 +2709,11 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                                                 T_right_j = SpinOperators.T[spin_2_index_j]
                                                 T_right = T_right_i[1, q1] @ T_right_j[1, q2]
 
-                                                R_term = sop_R_term_alpha_beta(l, q1, q2, intr_name1, intr_name2, spin_1_name, spin_2_name_i, spin_2_name_j, T_left, T_right,
-                                                                               keep_non_secular=keep_non_secular)
+                                                R_term = sop_R_term_alpha_beta(
+                                                    l, q1, q2, intr_name1, intr_name2,
+                                                    spin_1_name, spin_2_name_i, spin_2_name_j,
+                                                    T_left, T_right,
+                                                    keep_non_secular=keep_non_secular)
                                                 R_final += R_term
 
             # Double-spin single-spin mechanism pair
@@ -2708,12 +2754,17 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                                                 T_left = T_left_i[1, q1] @ T_left_j[1, q2]
 
                                                 if properties2[0][1] == 'L':
-                                                    T_right = op_T_coupled_lq(SpinOperators.T[spin_2_index], T_vector, l, (q1 + q2))
+                                                    T_right = op_T_coupled_lq(
+                                                        SpinOperators.T[spin_2_index],
+                                                        T_vector, l, (q1 + q2))
                                                 elif properties2[0][1] == 'Q':
                                                     T_right = SpinOperators.T[spin_2_index][l, (q1 + q2)]
 
-                                                R_term = sop_R_term_beta_alpha(l, q1, q2, intr_name1, intr_name2, spin_1_name_i, spin_1_name_j, spin_2_name, T_left, T_right,
-                                                                               keep_non_secular=keep_non_secular)
+                                                R_term = sop_R_term_beta_alpha(
+                                                    l, q1, q2, intr_name1, intr_name2,
+                                                    spin_1_name_i, spin_1_name_j, spin_2_name,
+                                                    T_left, T_right,
+                                                    keep_non_secular=keep_non_secular)
                                                 R_final += R_term
 
             # Double-spin two-spin mechanism pair
@@ -2730,7 +2781,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                 for (spin_1_index_i, spin_1_index_j), coupling_strength_1 in np.ndenumerate(coupling_strengths_matrix1):
                     if coupling_strength_1 != 0:
 
-                        for (spin_2_index_i, spin_2_index_j), coupling_strength_2 in np.ndenumerate(coupling_strengths_matrix2):
+                        for (spin_2_index_i, spin_2_index_j), coupling_strength_2 \
+                                in np.ndenumerate(coupling_strengths_matrix2):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
@@ -2751,7 +2803,8 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                                                 for q2_d2 in range(-1, 2):
 
                                                     # Clebsch-Gordan restriction
-                                                    if np.abs(q1_d1 + q2_d1) <= l and (q1_d1 + q2_d1) == (q1_d2 + q2_d2):
+                                                    if np.abs(q1_d1 + q2_d1) <= l \
+                                                            and (q1_d1 + q2_d1) == (q1_d2 + q2_d2):
 
                                                         T_left_i = SpinOperators.T[spin_1_index_i]
                                                         T_left_j = SpinOperators.T[spin_1_index_j]
@@ -2761,9 +2814,13 @@ def sop_R(SpinOperators, INCOHERENT_INTERACTIONS,
                                                         T_right_j = SpinOperators.T[spin_2_index_j]
                                                         T_right = T_right_i[1, q1_d2] @ T_right_j[1, q2_d2]
 
-                                                        R_term = sop_R_term_beta_beta(l, q1_d1, q2_d1, q1_d2, q2_d2, intr_name1, intr_name2,
-                                                                        spin_1_name_i, spin_1_name_j, spin_2_name_i, spin_2_name_j, T_left, T_right,
-                                                                        keep_non_secular=keep_non_secular)
+                                                        R_term = sop_R_term_beta_beta(
+                                                            l, q1_d1, q2_d1, q1_d2, q2_d2,
+                                                            intr_name1, intr_name2,
+                                                            spin_1_name_i, spin_1_name_j,
+                                                            spin_2_name_i, spin_2_name_j,
+                                                            T_left, T_right,
+                                                            keep_non_secular=keep_non_secular)
                                                         R_final += R_term
       
             else:
@@ -2822,12 +2879,17 @@ class RelaxationSuperoperator(Superoperator):
         Fix the basis operator normalization in `self.op`, in order to obtain
         the correct relaxation rates and equations of motion of observables.
         """
-        for i in range(self.op.shape[0]):
-            for j in range(self.op.shape[1]):
-                self.op[i, j] *= (self.basis_norms[i] / self.basis_norms[j])
+        op = self.op
+        norms = self.basis_norms
+
+        # Rescale every matrix element by the norms of its row and column basis operators.
+        # NOTE: A new matrix is constructed, so that the method also accepts an immutable
+        # self.op, as returned by, e.g., simplify().
+        rescaled = smp.Matrix(op.shape[0], op.shape[1],
+                              lambda i, j: op[i, j] * (norms[i] / norms[j]))
 
         # Simplify the relaxation superoperator.
-        self.op = smp.simplify(self.op)
+        self.op = smp.simplify(rescaled)
 
     def rate(self, spin_index_op_index_1, spin_index_op_index_2=None):
         """
@@ -2853,26 +2915,30 @@ class RelaxationSuperoperator(Superoperator):
             Relaxation rate between the two operators, or None if either
             operator is not found in `self.basis_symbols`.
         """
-        # Check if Cartesian or spherical tensor operator
+        # Check whether a Cartesian or a spherical tensor operator was requested.
         if spin_index_op_index_1[-1] in 'xyz':
-            # Cartesian operator
+
+            # Cartesian operator.
             index_1 = S_symbol_list_index(self.basis_symbols, spin_index_op_index_1)
             if spin_index_op_index_2 is None:
                 index_2 = index_1
             else:
                 index_2 = S_symbol_list_index(self.basis_symbols, spin_index_op_index_2)
         else:
-            # Spherical tensor operator
+
+            # Spherical tensor operator.
             index_1 = T_symbol_list_index(self.basis_symbols, spin_index_op_index_1)
             if spin_index_op_index_2 is None:
                 index_2 = index_1
             else:
                 index_2 = T_symbol_list_index(self.basis_symbols, spin_index_op_index_2)
-                
-        try:
-            return self.op[index_1, index_2]
-        except IndexError:
-            pass
+
+        # Return nothing if either operator was not found in the basis.
+        # NOTE: The lookup functions above report the failure and return None.
+        if index_1 is None or index_2 is None:
+            return None
+
+        return self.op[index_1, index_2]
 
     def to_isotropic_rotational_diffusion(self, fast_motion_limit=False, slow_motion_limit=False):
         """
@@ -2942,12 +3008,13 @@ class RelaxationSuperoperator(Superoperator):
         """
         Neglect all cross-relaxation terms (off-diagonal elements) in the relaxation superoperator.
         """
-        self.op = self.op.as_mutable()  # Convert to a mutable matrix.
-        for i in range(self.op.shape[0]):
-            for j in range(self.op.shape[1]):
-                if i != j:
-                    self.op[i, j] = 0  # Set off-diagonal elements to zero.
-        self.op = self.op.as_immutable()  # Convert back to an immutable matrix.
+        op = self.op
+
+        # Retain the diagonal auto-relaxation elements and zero all off-diagonal ones.
+        # NOTE: A new matrix is constructed, so that the method also accepts an immutable
+        # self.op, as returned by, e.g., simplify().
+        self.op = smp.Matrix(op.shape[0], op.shape[1],
+                             lambda i, j: op[i, j] if i == j else 0)
 
     def filter(self, filter_name, filter_value):
         """
@@ -3121,7 +3188,8 @@ def R_object_in_prodop_basis(spinsystem, INCOHERENT_INTERACTIONS,
         # Compute the direct product basis of the spherical tensor operators.
         basis_ops, symbols, norms = T_product_basis_and_symbols(Sops, sorting=sorting)
     else:
-        raise ValueError("Invalid basis type. Choose 'T' for spherical tensor operators or 'C' for Cartesian spin operators.")
+        raise ValueError("Invalid basis type. Choose 'T' for spherical tensor operators "
+                         "or 'C' for Cartesian spin operators.")
 
     # Create the relaxation superoperator and convert it to the product basis.
     R = RelaxationSuperoperator(R, symbols, norms)
