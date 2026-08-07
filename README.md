@@ -16,20 +16,25 @@ P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. M
 [https://doi.org/10.1016/j.jmr.2024.107828](https://doi.org/10.1016/j.jmr.2024.107828)
 
 **Rela²x 0.0.2:**  
-Small bug fixes, documentation, type hints, naming consistency, code cleanup and cosmetic improvements. 
+New features, bug fixes, type hints, naming consistency, documentation and cosmetic improvements. 
+<!-- The main additions are the Cartesian product operator basis (`basis='C'`) and analytical operator decomposition (`op_decomposition`).  -->
 
 The most significant fixes concern the sorting of the product operator basis. The order in which the basis operators appear therefore differs from version 0.0.1, and from the figures in the publication; the matrix elements themselves are unaffected.
 
-<!-- Some names changed in this version:
+Some names changed in this version:
 
 | 0.0.1 | 0.0.2 |
 | --- | --- |
-| `R_object_in_prodop_basis` | `R_object_in_product_operator_basis` |
+| `R_object_in_T_basis` | `R_object_in_product_operator_basis` |
 | `KroneckerProduct` | `Kronecker_product` |
 | `T_symbol_spin_order`, `T_symbol_coherence_order`, `T_symbol_type`, `T_symbol_Nth_spin_projection` | `T_index_spin_order`, `T_index_coherence_order`, `T_index_type`, `T_index_spin_projection` |
+| `T_symbol_list_index` | `basis_index_list_index` |
 | `full_sort_T_product_basis`, and the individual sorting passes | `sort_T_product_basis`, together with `T_basis_sort_keys` |
+| `T_basis_split_to_coherence_orders` | removed; use `R.filter('c', ...)` |
 
-The `T_symbol_*` functions determined the properties of a basis operator by reading its printed symbol. The `T_index_*` functions that replace them read the basis operator indices instead (see Usage below). -->
+<!-- The `T_symbol_*` functions determined the properties of a basis operator by reading its printed symbol. The `T_index_*` functions that replace them read the basis operator indices instead (see Usage below). -->
+
+The full changelog is in the [0.0.2 release notes](https://github.com/hillaper/Rela2x/releases/tag/0.0.2). 
 
 ## Notes
 
