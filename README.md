@@ -48,7 +48,7 @@ The irreducible spherical tensor components printed at the end of the publicatio
 
 Only basic knowledge of Python is required. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
 
-For detailed information on the functions and classes of Rela²x, refer to the documentation directly in `rela2x.py`. (A thorough dedicated documentation page is planned for the future.)
+For detailed information on the functions and classes of Rela²x, refer to the documentation directly in the source modules under `src/rela2x/_core/`. (A thorough dedicated documentation page is planned for the future.)
 
 ## Installation from PyPI
 The most recent release published on the Python Package Index (PyPI) can be installed with:
@@ -110,7 +110,7 @@ These dependencies are listed in `pyproject.toml`. Rela²x is designed to be an 
 
 The usage of Rela²x is summarized below. Specifics, such as variable names, can be customized as needed. (See also the example notebooks included in the repository.)
 
-**Import `rela2x.py`:**
+**Import Rela²x:**
 
    ```python
    from rela2x import *
@@ -126,7 +126,11 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    spin_system = ['14N', '1H', '1H']
    ```
    
-   A collection of NMR isotopes and their spin quantum numbers is listed in `nmr_isotopes.py`. The values are sourced from [this NMR table](https://www.kherb.io/docs/nmr_table.html). If your preferred nucleus is not listed, feel free to add it!
+   A collection of NMR isotopes and their spin quantum numbers is held in the `ISOTOPES` dictionary, which is brought into your namespace by the import above. The values are sourced from [this NMR table](https://www.kherb.io/docs/nmr_table.html). Each entry maps an isotope label to a `[spin quantum number, gyromagnetic ratio in MHz/T]` pair. If your preferred nucleus is not listed, feel free to add it. Adding a suffixed copy of an existing isotope is also how chemically inequivalent nuclei of the same isotope are given distinct chemical shifts:
+
+   ```python
+   ISOTOPES['1H_X'] = ISOTOPES['1H']
+   ```
    
 **Choose general settings (optional):**
 
@@ -177,7 +181,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    The `R_object_in_product_operator_basis` function takes as input the `spin_system` and `intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
    
-   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `rela2x.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator.
+   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `_core/_basis.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator.
 
    Note that the non-unit norms of observables are taken into account in the relaxation rates, i.e., the matrix elements. The rates directly correspond to observables.
 
@@ -208,7 +212,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `neglect_cross_relaxation()` neglects all cross-relaxation in *R*, setting every off-diagonal element to zero and leaving only the auto-relaxation rates on the diagonal. Note the distinction from the previous method: cross-*correlation* is between two interaction mechanisms, whereas cross-*relaxation* is between two basis operators.
 
-   - (Only available for the spherical tensor basis): `filter(filter_name, filter_value)` filters out potentially uninteresting regions of *R* based on given criteria. `filter_name` must be one of the following: 'c' for coherence order, 's' for spin order, or 't' for type. This determines the criteria for filtration. `filter_value` is an integer or a list of integers depending on the filtration type (see the documentation in `rela2x.py`) and determines which values are kept (not filtered out) in *R*. For instance, calling `R.filter('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
+   - (Only available for the spherical tensor basis): `filter(filter_name, filter_value)` filters out potentially uninteresting regions of *R* based on given criteria. `filter_name` must be one of the following: 'c' for coherence order, 's' for spin order, or 't' for type. This determines the criteria for filtration. `filter_value` is an integer or a list of integers depending on the filtration type (see the documentation in `_core/_basis.py`) and determines which values are kept (not filtered out) in *R*. For instance, calling `R.filter('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
 
    The best way to get acquainted is to try these functions yourself!
    
@@ -238,7 +242,7 @@ Rela²x is not designed for spin systems where the dimension of *R* exceeds ~150
 
 ## Advanced Users
 
-Additional features not covered in this guide can be found in `rela2x.py`. The code is well-documented, and advanced Python/SymPy users should find it relatively straightforward to navigate.
+Additional features not covered in this guide can be found in the source modules under `src/rela2x/_core/`. The code is well-documented, and advanced Python/SymPy users should find it relatively straightforward to navigate.
 
 ## License
 

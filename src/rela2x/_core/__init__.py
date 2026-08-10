@@ -1,21 +1,17 @@
 """
-Public package namespace for Rela²x.
+Internal core namespace of Rela2x.
 
-Rela²x provides analytic and automatic high-field liquid-state NMR relaxation
-theory. The package is intended to be imported as::
+This module centralises the re-export of the internal core functionality of
+Rela2x. In normal use, the public package namespace should be preferred::
 
     from rela2x import *
 
-so that the functionality is available directly, as in the example notebooks.
-The theory is described in::
-
-    P. Hilla, J. Vaara, J. Magn. Reson., 2025.
-    https://doi.org/10.1016/j.jmr.2024.107828
+Direct imports from :mod:`rela2x._core` remain possible, but they are intended
+primarily for internal use, testing, and advanced development workflows.
 """
 
-# Re-export the public core functionality under the package namespace.
-from rela2x._core._settings import set_relaxation_theory
-from rela2x._core._constants import (
+from ._settings import set_relaxation_theory
+from ._constants import (
     hbar,
     k_B,
     mu_0,
@@ -28,11 +24,11 @@ from rela2x._core._constants import (
     tau,
     tau_c,
 )
-from rela2x._core._nmr_isotopes import (
+from ._nmr_isotopes import (
     ISOTOPES,
     spin_quantum_numbers,
 )
-from rela2x._core._la import (
+from ._la import (
     Kronecker_product,
     commutator,
     Lv_bracket,
@@ -41,7 +37,7 @@ from rela2x._core._la import (
     op_change_of_basis,
     op_decomposition,
 )
-from rela2x._core._utils import (
+from ._utils import (
     string_to_number,
     sort_interactions,
     pick_from_list,
@@ -51,7 +47,7 @@ from rela2x._core._utils import (
     list_indexes,
     all_combinations,
 )
-from rela2x._core._symbols import (
+from ._symbols import (
     op_S_symbol,
     product_op_S_symbol,
     op_T_symbol,
@@ -59,7 +55,7 @@ from rela2x._core._symbols import (
     expectation_value,
     f_expectation_value_t,
 )
-from rela2x._core._operators import (
+from ._operators import (
     op_Sx,
     op_Sy,
     op_Sz,
@@ -72,7 +68,7 @@ from rela2x._core._operators import (
     many_spin_operator,
     SpinOperators,
 )
-from rela2x._core._superoperators import (
+from ._superoperators import (
     vectorize,
     vectorize_all,
     sop_rmul,
@@ -81,7 +77,7 @@ from rela2x._core._superoperators import (
     sop_double_commutator,
     sop_D,
 )
-from rela2x._core._basis import (
+from ._basis import (
     T_index_spin_order,
     T_index_coherence_order,
     T_index_type,
@@ -105,23 +101,23 @@ from rela2x._core._basis import (
     sort_T_product_basis,
     T_product_basis_and_symbols,
 )
-from rela2x._core._operator_classes import (
+from ._operator_classes import (
     Operator,
     Superoperator,
 )
-from rela2x._core._visualization import (
+from ._visualization import (
     matrix_nonzeros,
     visualize_operator,
     visualize_many_operators,
 )
-from rela2x._core._spectral_density import (
+from ._spectral_density import (
     Lorentzian,
     Schofield_theta,
     J_w,
     J_w_isotropic_rotational_diffusion,
     extract_J_w_symbols_and_args,
 )
-from rela2x._core._relaxation import (
+from ._relaxation import (
     sop_R_term,
     sop_R_term_alpha_alpha,
     sop_R_term_alpha_beta,
@@ -129,15 +125,14 @@ from rela2x._core._relaxation import (
     sop_R_term_beta_beta,
     sop_R,
 )
-from rela2x._core._relaxation_superoperator import RelaxationSuperoperator
-from rela2x._core._master_equations import (
+from ._relaxation_superoperator import RelaxationSuperoperator
+from ._master_equations import (
     equations_of_motion,
     equations_of_motion_to_latex,
 )
-from rela2x._core._workflows import R_object_in_product_operator_basis
+from ._workflows import R_object_in_product_operator_basis
 
-# Explicit public interface, so that "from rela2x import *" exposes the Rela2x
-# names only, and not the third-party modules imported by the core.
+# Explicit internal interface, mirroring the public package namespace.
 __all__ = [
     "set_relaxation_theory",
     "hbar",
