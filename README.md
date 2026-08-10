@@ -43,6 +43,9 @@ Before using Rela²x, it is recommended that you read the related publication ht
 **Important:**
 This documentation contains the most up-to-date information regarding the code itself, and it differs in some respects from the publication. The underlying theory is the same, but the code has been updated and improved since the publication.
 
+**Erratum:**
+The irreducible spherical tensor components printed at the end of the publication have errors. However, the implementation in Rela²x is and has always been correct.
+
 Only basic knowledge of Python is required. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
 
 For detailed information on the functions and classes of Rela²x, refer to the documentation directly in `rela2x.py`. (A thorough dedicated documentation page is planned for the future.)
