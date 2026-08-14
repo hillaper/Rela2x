@@ -1,7 +1,7 @@
 # ––––– Rela²x –––––
 # *A*nalytic and *A*utomatic NMR (relaxation) theory
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21934668.svg)](https://doi.org/10.5281/zenodo.21934668)
+[![DOI](https://zenodo.org/badge/799492066.svg)](https://doi.org/10.5281/zenodo.21934667)
 
 ## Description
 
