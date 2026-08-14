@@ -1,6 +1,8 @@
 # ––––– Rela²x –––––
 # *A*nalytic and *A*utomatic NMR (relaxation) theory
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21934668.svg)](https://doi.org/10.5281/zenodo.21934668)
+
 ## Description
 
 Rela²x is a freely available Python package for **analytic** and **automatic** (hence the a squared) 
