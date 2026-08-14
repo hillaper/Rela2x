@@ -155,7 +155,7 @@ def op_Svec(S: float) -> list[smp.Matrix]:
 # Classical spherical tensors:
 def vector_to_spherical_tensor(vector: list) -> dict:
     """
-    Convert a Cartesian vector to a classical spherical tensor of rank 1.
+    Convert a Cartesian vector to a spherical tensor of rank 1.
 
     Parameters
     ----------
@@ -310,12 +310,10 @@ class SpinOperators:
     """
     General class for the spin operators (Cartesian and spherical tensor) of a spin system.
 
-    NOTE: One of the main classes of Rela2x.
-
     Parameters
     ----------
-    spinsystem : list of str
-        Nuclear isotopes (as string labels, see `nmr_isotopes.py`) that define the spin system.
+    spin_system : list of str
+        Nuclear isotopes (as string labels, see `_nmr_isotopes.py`) that define the spin system.
 
     Attributes
     ----------
@@ -341,11 +339,11 @@ class SpinOperators:
     Raises
     ------
     ValueError
-        If `spinsystem` is not a list of strings.
+        If `spin_system` is not a list of strings.
     """
     def __init__(
         self,
-        spinsystem: list[str],
+        spin_system: list[str],
     ) -> None:
         """
         Initialise the spin system and generate its Cartesian and spherical
@@ -353,31 +351,31 @@ class SpinOperators:
 
         Parameters
         ----------
-        spinsystem : list of str
-            Nuclear isotopes (as string labels, see `nmr_isotopes.py`) that define the spin system.
+        spin_system : list of str
+            Nuclear isotopes (as string labels, see `_nmr_isotopes.py`) that define the spin system.
         """
 
         # Check that the input is a list of strings.
-        if not all(isinstance(isotope, str) for isotope in spinsystem):
-            raise ValueError("The spinsystem input has to be a list of strings corresponding to "
+        if not all(isinstance(isotope, str) for isotope in spin_system):
+            raise ValueError("The spin_system input has to be a list of strings corresponding to "
                              "NMR isotopes (e.g. ['1H', '13C']).")
 
-        self.spinsystem = spinsystem
-        self.S = spin_quantum_numbers(spinsystem)
+        self.spin_system = spin_system
+        self.S = spin_quantum_numbers(spin_system)
 
         # Determine the size of the many-spin Hilbert space.
         self.N_spins = len(self.S)
-        self.gen_N_states()
+        self._gen_N_states()
 
         # Generate the Cartesian spin operators and their symbols.
-        self.gen_many_spin_cartesian_operators()
-        self.gen_cartesian_operator_symbols()
+        self._gen_many_spin_cartesian_operators()
+        self._gen_cartesian_operator_symbols()
 
         # Generate the spherical tensor spin operators and their symbols.
-        self.gen_many_spin_T_operators()
-        self.gen_T_operator_symbols()
+        self._gen_many_spin_T_operators()
+        self._gen_T_operator_symbols()
 
-    def gen_N_states(self) -> None:
+    def _gen_N_states(self) -> None:
         """
         Generate the number of Hilbert-space states in the spin system and
         store it in `self.N_states`.
@@ -387,7 +385,7 @@ class SpinOperators:
             self.N_states *= int(2*self.S[i] + 1)
 
     # Cartesian spin operators
-    def gen_many_spin_cartesian_operators(self) -> None:
+    def _gen_many_spin_cartesian_operators(self) -> None:
         """
         Generate the many-spin Cartesian spin operators and store them in
         `self.E`, `self.Sx`, `self.Sy`, `self.Sz`, `self.Sp` and `self.Sm`.
@@ -399,7 +397,7 @@ class SpinOperators:
         self.Sp = [many_spin_operator(self.S, op_Sp(S), i) for i, S in enumerate(self.S)]
         self.Sm = [many_spin_operator(self.S, op_Sm(S), i) for i, S in enumerate(self.S)]
 
-    def gen_cartesian_operator_symbols(self) -> None:
+    def _gen_cartesian_operator_symbols(self) -> None:
         """
         Generate the Cartesian spin operator symbols and store them in
         `self.E_symbol`, `self.Sx_symbol`, `self.Sy_symbol`, `self.Sz_symbol`,
@@ -413,7 +411,7 @@ class SpinOperators:
         self.Sm_symbol = [op_S_symbol('-', i+1) for i in range(self.N_spins)]
 
     # Spherical tensor operators
-    def gen_many_spin_T_operators(self) -> None:
+    def _gen_many_spin_T_operators(self) -> None:
         """
         Generate the many-spin spherical tensor operators and store them in `self.T`.
         """
@@ -441,7 +439,7 @@ class SpinOperators:
         self.T = [{(l, q): many_spin_operator(self.S, T_lq, i) for (l, q), T_lq in T.items()}
                   for i, T in enumerate(self.T)]
 
-    def gen_T_operator_symbols(self) -> None:
+    def _gen_T_operator_symbols(self) -> None:
         """
         Generate the spherical tensor operator symbols and store them in `self.T_symbol`.
         """

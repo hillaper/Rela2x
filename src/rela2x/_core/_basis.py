@@ -20,16 +20,12 @@ from __future__ import annotations
 import sympy as smp
 import sympy.physics.quantum as smpq
 
-from rela2x._core._la import Lv_norm
+from rela2x._core._la import Liouville_norm
 from rela2x._core._operators import SpinOperators
-from rela2x._core._utils import all_combinations, cut_list, cut_matrix, list_indexes
+from rela2x._core._utils import all_combinations, cut_list, cut_matrix, list_indices
 
 
 # Information extraction from product basis indices
-# NOTE: Each basis operator is described by a tuple of (spin index, l, q) triples, one per spin
-# carrying a non-identity operator, ordered by spin index. The identity operator of the whole
-# system is described by an empty tuple. Spin indices are 1-based, matching the operator symbols.
-# The Cartesian basis is described analogously by (spin index, direction) pairs.
 def T_index_spin_order(T_index: tuple) -> int:
     """
     Determine the spin order of a basis operator, i.e. the number of single-spin
@@ -158,7 +154,7 @@ def S_index_from_string(spin_index_directions: str) -> tuple:
     return tuple(factors)
 
 
-def basis_index_list_index(basis_indices: list[tuple], target_index: tuple) -> int | None:
+def basis_index_position(basis_indices: list[tuple], target_index: tuple) -> int | None:
     """
     Find the position of a basis operator within a list of basis operator indices.
 
@@ -184,69 +180,82 @@ def basis_index_list_index(basis_indices: list[tuple], target_index: tuple) -> i
 # Filter functions based on allowed coherences, spin orders and types
 # NOTE: General input and return structure defined in coherence_order_filter.
 def coherence_order_filter(
-    operator: smp.MatrixBase,
-    basis_state_symbols: list[smp.Expr],
+    op: smp.MatrixBase,
+    basis_symbols: list[smp.Expr],
+    basis_norms: list[smp.Expr],
     basis_indices: list[tuple],
     allowed_coherences: list[int],
-) -> tuple[smp.MatrixBase, list[smp.Expr], list[tuple]]:
+) -> tuple[smp.MatrixBase, list[smp.Expr], list[smp.Expr], list[tuple]]:
     """
     Filter an operator and its basis to a set of allowed coherence orders.
 
     Parameters
     ----------
-    operator : sympy.Matrix
+    op : sympy.Matrix
         Operator (matrix representation) to be filtered.
-    basis_state_symbols : list of sympy.Expr
-        Basis state symbols corresponding to the rows/columns of `operator`.
+    basis_symbols : list of sympy.Expr
+        Basis operator symbols corresponding to the rows/columns of `op`.
+    basis_norms : list of sympy.Expr
+        Liouville norms of the basis operators corresponding to the rows/columns of `op`.
     basis_indices : list of tuple
-        Basis operator indices corresponding to the rows/columns of `operator`.
+        Basis operator indices corresponding to the rows/columns of `op`.
     allowed_coherences : list of int
         Coherence orders to retain.
 
     Returns
     -------
-    operator : sympy.Matrix
+    op : sympy.Matrix
         Filtered operator.
-    basis_state_symbols : list of sympy.Expr
-        Filtered basis state symbols.
+    basis_symbols : list of sympy.Expr
+        Filtered basis operator symbols.
+    basis_norms : list of sympy.Expr
+        Filtered Liouville norms.
     basis_indices : list of tuple
         Filtered basis operator indices.
+
+    NOTE: The norms are filtered alongside the rest of the basis, so that a
+    subsequent normalization to observables uses the norms of the operators
+    that actually remain.
     """
     coherences = [T_index_coherence_order(index) for index in basis_indices]
-    indexes_to_delete = [i for i, coherence in enumerate(coherences)
+    indices_to_delete = [i for i, coherence in enumerate(coherences)
                          if coherence not in allowed_coherences]
 
-    return (cut_matrix(operator, indexes_to_delete),
-            cut_list(basis_state_symbols, indexes_to_delete),
-            cut_list(basis_indices, indexes_to_delete))
+    return (cut_matrix(op, indices_to_delete),
+            cut_list(basis_symbols, indices_to_delete),
+            cut_list(basis_norms, indices_to_delete),
+            cut_list(basis_indices, indices_to_delete))
 
 
 def spin_order_filter(
-    operator: smp.MatrixBase,
-    basis_state_symbols: list[smp.Expr],
+    op: smp.MatrixBase,
+    basis_symbols: list[smp.Expr],
+    basis_norms: list[smp.Expr],
     basis_indices: list[tuple],
     allowed_spin_orders: list[int],
-) -> tuple[smp.MatrixBase, list[smp.Expr], list[tuple]]:
+) -> tuple[smp.MatrixBase, list[smp.Expr], list[smp.Expr], list[tuple]]:
     """
     Filter an operator and its basis to a set of allowed spin orders.
 
     See `coherence_order_filter` for the parameter and return structure.
     """
     spin_orders = [T_index_spin_order(index) for index in basis_indices]
-    indexes_to_delete = [i for i, spin_order in enumerate(spin_orders)
+    indices_to_delete = [i for i, spin_order in enumerate(spin_orders)
                          if spin_order not in allowed_spin_orders]
 
-    return (cut_matrix(operator, indexes_to_delete),
-            cut_list(basis_state_symbols, indexes_to_delete),
-            cut_list(basis_indices, indexes_to_delete))
+    return (cut_matrix(op, indices_to_delete),
+            cut_list(basis_symbols, indices_to_delete),
+            cut_list(basis_norms, indices_to_delete),
+            cut_list(basis_indices, indices_to_delete))
 
 
 def type_filter(
-    operator: smp.MatrixBase,
-    basis_state_symbols: list[smp.Expr],
+    op: smp.MatrixBase,
+    basis_symbols: list[smp.Expr],
+    basis_norms: list[smp.Expr],
     basis_indices: list[tuple],
     allowed_type: int,
-) -> tuple[smp.MatrixBase, list[smp.Expr], list[tuple]]:
+) -> tuple[smp.MatrixBase, list[smp.Expr], list[smp.Expr], list[tuple]]:
     """
     Filter an operator and its basis to a single allowed type.
 
@@ -254,12 +263,13 @@ def type_filter(
     See `coherence_order_filter` for the parameter and return structure.
     """
     basis_types = [T_index_type(index) for index in basis_indices]
-    indexes_to_delete = [i for i, basis_type in enumerate(basis_types)
+    indices_to_delete = [i for i, basis_type in enumerate(basis_types)
                          if basis_type != allowed_type]
 
-    return (cut_matrix(operator, indexes_to_delete),
-            cut_list(basis_state_symbols, indexes_to_delete),
-            cut_list(basis_indices, indexes_to_delete))
+    return (cut_matrix(op, indices_to_delete),
+            cut_list(basis_symbols, indices_to_delete),
+            cut_list(basis_norms, indices_to_delete),
+            cut_list(basis_indices, indices_to_delete))
 
 
 # Product basis construction
@@ -290,7 +300,7 @@ def _product_basis_from_factors(
     N_spins = len(factors)
 
     # Enumerate one operator index per spin, in every combination.
-    index_combinations = all_combinations(N_spins, *[list_indexes(f) for f in factors],
+    index_combinations = all_combinations(N_spins, *[list_indices(f) for f in factors],
                                           reverse=reverse)
 
     # Multiply the selected single-spin operators together for each combination.
@@ -298,15 +308,15 @@ def _product_basis_from_factors(
     for index_combination in index_combinations:
         product = None
         for spin_index, factor_index in enumerate(index_combination):
-            operator = factors[spin_index][factor_index]
-            product = operator if product is None else product @ operator
+            op = factors[spin_index][factor_index]
+            product = op if product is None else product @ op
         basis.append(product)
 
     # Norms of the basis operators. Used for normalization and later for basis to observables conversion.
-    norms = [Lv_norm(operator) for operator in basis]
+    norms = [Liouville_norm(op) for op in basis]
 
     # Normalize the basis.
-    basis = [operator / norm for operator, norm in zip(basis, norms)]
+    basis = [op / norm for op, norm in zip(basis, norms)]
 
     return basis, norms
 
@@ -337,7 +347,7 @@ def _product_basis_symbols_from_factors(
     N_spins = len(symbol_factors)
 
     # Enumerate one symbol index per spin, in every combination.
-    index_combinations = all_combinations(N_spins, *[list_indexes(f) for f in symbol_factors],
+    index_combinations = all_combinations(N_spins, *[list_indices(f) for f in symbol_factors],
                                           reverse=reverse)
 
     # Multiply the selected single-spin symbols together for each combination.
@@ -550,7 +560,7 @@ def Cartesian_product_basis_indices(spin_operators: SpinOperators) -> list[tuple
     directions = [['E', 'x', 'y', 'z'] for _ in range(N_spins)]
 
     # Enumerate one direction index per spin, in the same order as the operators.
-    index_combinations = all_combinations(N_spins, *[list_indexes(d) for d in directions],
+    index_combinations = all_combinations(N_spins, *[list_indices(d) for d in directions],
                                           reverse=False)
 
     # Record the spins carrying a non-identity operator.
@@ -587,7 +597,7 @@ def T_product_basis_indices(spin_operators: SpinOperators) -> list[tuple]:
            for i in range(N_spins)]
 
     # Enumerate one (l, q) index per spin, in the same order as the operators.
-    index_combinations = all_combinations(N_spins, *[list_indexes(lq) for lq in lqs],
+    index_combinations = all_combinations(N_spins, *[list_indices(lq) for lq in lqs],
                                           reverse=True)
 
     # Record the spins carrying a non-identity operator.
@@ -658,6 +668,7 @@ def T_basis_sort_keys(sorting: str, N_spins: int) -> list:
     Build the ordered list of sort keys defining a sorting scheme.
 
     Version ``'v1'`` orders by coherence order, then by spin order, then by type.
+    
     Version ``'v2'`` places the identity operator first, then orders by coherence
     order, then by the projections carried by each spin.
 
@@ -722,7 +733,7 @@ def sort_T_product_basis(
         T_product_basis_indices)``.
     """
     # Order the basis by the combined key, keeping equally ranked operators in their original order.
-    order = sorted(list_indexes(T_product_basis_indices),
+    order = sorted(list_indices(T_product_basis_indices),
                    key=lambda i: tuple(key(T_product_basis_indices[i]) for key in sort_keys))
 
     return ([T_product_basis[i] for i in order],

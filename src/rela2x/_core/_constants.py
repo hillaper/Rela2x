@@ -26,10 +26,12 @@ w_0 = smp.Symbol('\\omega_0', real=True)
 B = smp.Symbol('B', real=True, positive=True)
 
 # Temperature.
-T = smp.Symbol('T', real=True, positive=True)
+# NOTE: Named in full so that the bare name T stays free for the spherical
+# tensor operators, which the rest of the package uses it for.
+temperature = smp.Symbol('T', real=True, positive=True)
 
 # Inverse temperature multiplied by hbar.
-beta = hbar / (k_B * T)
+beta = hbar / (k_B * temperature)
 
 # Time.
 t = smp.Symbol('t', real=True, positive=True)

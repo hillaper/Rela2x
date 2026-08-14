@@ -1,9 +1,10 @@
 """
-Symbolic representations of spin operators and expectation values.
+Symbolic representations of spin operators, expectation values and interaction parameters.
 
 The symbols generated here carry no matrix representation; they are the printed
 labels attached to basis operators and to the observables appearing in the
-equations of motion.
+equations of motion, together with the symbolic parameters of the interactions
+themselves.
 """
 
 # NOTE: Postponed evaluation of annotations, so that the modern union syntax can be
@@ -133,7 +134,13 @@ def expectation_value(op_symbol: smp.Expr) -> smp.Symbol:
     sympy.Symbol
         Symbol representing the expectation value of `op_symbol`.
     """
-    return smp.Symbol('\\langle ' + str(op_symbol) + '\\rangle')
+    # Join product-operator factors directly, without the '*' that the default
+    # noncommutative Mul printer would otherwise insert between them.
+    if op_symbol.is_Mul:
+        op_str = ''.join(str(factor) for factor in op_symbol.args)
+    else:
+        op_str = str(op_symbol)
+    return smp.Symbol('\\langle ' + op_str + '\\rangle')
 
 
 def f_expectation_value_t(op_symbol: smp.Expr) -> smp.Function:
@@ -151,3 +158,59 @@ def f_expectation_value_t(op_symbol: smp.Expr) -> smp.Function:
         Time-dependent function representing the expectation value of `op_symbol`.
     """
     return smp.Function(expectation_value(op_symbol))(t)
+
+
+# Interaction parameters
+def w_symbol(spin_name: str) -> smp.Symbol:
+    """
+    Build the symbolic Larmor frequency of a spin.
+
+    NOTE: The symbol is keyed by the isotope label rather than by the spin
+    index, so that spins sharing a label also share the symbol. Chemically
+    inequivalent nuclei of the same isotope are therefore distinguished by
+    giving them distinct labels (see `ISOTOPES` in `_nmr_isotopes.py`), which
+    is how the chemical shift enters both the relaxation superoperator and the
+    coherent Hamiltonian.
+
+    NOTE: Both the secular approximation of the relaxation superoperator and
+    the Zeeman Hamiltonian are built from this function, so that the two
+    provably share their Larmor frequency symbols.
+
+    Parameters
+    ----------
+    spin_name : str
+        Nuclear isotope label of the spin.
+
+    Returns
+    -------
+    sympy.Symbol
+        Larmor frequency symbol of the spin, as an angular frequency.
+    """
+    return smp.Symbol(f'\\omega_{{{spin_name}}}', real=True)
+
+
+def J_coupling_symbol(
+    spin_index_1: int,
+    spin_index_2: int,
+) -> smp.Symbol:
+    """
+    Build the symbolic J-coupling constant between two spins.
+
+    NOTE: The spin indices are 1-based, matching the spin operator symbols and
+    the interaction names given to the relaxation mechanisms. The labels of the
+    two spins are concatenated, so they become ambiguous beyond nine spins,
+    which is far outside the system sizes Rela2x is intended for.
+
+    Parameters
+    ----------
+    spin_index_1 : int
+        Index of the first spin.
+    spin_index_2 : int
+        Index of the second spin.
+
+    Returns
+    -------
+    sympy.Symbol
+        J-coupling constant symbol, as an ordinary frequency (in Hz).
+    """
+    return smp.Symbol(f'J_{{{spin_index_1}{spin_index_2}}}', real=True)

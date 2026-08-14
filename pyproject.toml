@@ -1,10 +1,10 @@
 [project]
 name = "rela2x"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="Perttu Hilla", email="perttu.hilla@oulu.fi" },
 ]
-description = "Analytic and Automatic NMR relaxation theory."
+description = "Analytic and Automatic NMR relaxation theory and spin dynamics."
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [

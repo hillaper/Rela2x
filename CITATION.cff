@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the accompanying publication (see preferred-citation) and, ideally, the software itself via its Zenodo DOI."
+type: software
+title: "Rela²x"
+abstract: >-
+  Analytic and automatic NMR relaxation theory: a Python package that symbolically builds the
+  Liouville-space Hamiltonian, relaxation, and Liouvillian superoperators governing high-field
+  liquid-state NMR spin dynamics for arbitrary small spin systems.
+authors:
+  - family-names: Hilla
+    given-names: Perttu
+    orcid: "https://orcid.org/0000-0003-4598-5395"
+    affiliation: "University of Oulu"
+  - family-names: Eronen
+    given-names: Joni
+    orcid: "https://orcid.org/0009-0000-2538-9006"
+    affiliation: "University of Oulu"
+version: 0.0.3
+date-released: "2026-08-14"
+license: MIT
+repository-code: "https://github.com/hillaper/Rela2x"
+keywords:
+  - NMR
+  - relaxation theory
+  - spin dynamics
+  - Liouville space
+  - symbolic computation
+  - Redfield theory
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Hilla
+      given-names: Perttu
+      orcid: "https://orcid.org/0000-0003-4598-5395"
+    - family-names: Vaara
+      given-names: Juha
+  title: "Rela²x: Analytic and automatic NMR relaxation theory"
+  journal: "Journal of Magnetic Resonance"
+  year: 2025
+  doi: "10.1016/j.jmr.2024.107828"

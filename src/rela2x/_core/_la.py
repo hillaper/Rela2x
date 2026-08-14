@@ -60,7 +60,7 @@ def commutator(
 
 
 # Liouville bracket, norm and amplitude
-def Lv_bracket(
+def Liouville_bracket(
     op1: smp.MatrixBase,
     op2: smp.MatrixBase,
 ) -> smp.Expr:
@@ -82,7 +82,7 @@ def Lv_bracket(
     return smp.trace(op1.H * op2)
 
 
-def Lv_norm(op: smp.MatrixBase) -> smp.Expr:
+def Liouville_norm(op: smp.MatrixBase) -> smp.Expr:
     """
     Compute the symbolic Liouville (Hilbert-Schmidt) norm of an operator.
 
@@ -96,10 +96,10 @@ def Lv_norm(op: smp.MatrixBase) -> smp.Expr:
     sympy.Expr
         Liouville norm of `op`.
     """
-    return smp.sqrt(Lv_bracket(op, op))
+    return smp.sqrt(Liouville_bracket(op, op))
 
 
-def Lv_amplitude(
+def Liouville_amplitude(
     op1: smp.MatrixBase,
     op2: smp.MatrixBase,
 ) -> smp.Expr:
@@ -117,9 +117,9 @@ def Lv_amplitude(
     Returns
     -------
     sympy.Expr
-        Amplitude of `op1` contained in `op2`, i.e. ``Lv_bracket(op1, op2) / Lv_bracket(op1, op1)``.
+        Amplitude of `op1` contained in `op2`, i.e. ``Liouville_bracket(op1, op2) / Liouville_bracket(op1, op1)``.
     """
-    return Lv_bracket(op1, op2) / Lv_bracket(op1, op1)
+    return Liouville_bracket(op1, op2) / Liouville_bracket(op1, op1)
 
 
 def op_change_of_basis(
@@ -179,7 +179,7 @@ def op_decomposition(
 
     # Accumulate the contribution of every basis state with a non-zero amplitude.
     for i in range(len(basis)):
-        amplitude = Lv_amplitude(basis[i], op)
+        amplitude = Liouville_amplitude(basis[i], op)
         amplitude = smp.nsimplify(amplitude)
         if amplitude != 0:
             op_decomposed += amplitude * basis_symbols[i]

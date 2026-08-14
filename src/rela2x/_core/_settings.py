@@ -1,13 +1,14 @@
 """
 Global settings controlling the behaviour of Rela2x.
 
-The relaxation theory is held as a module-level variable rather than passed
-around explicitly, so that it can be set once and take effect throughout the
-package. Other modules read it as ``_settings.RELAXATION_THEORY`` rather than
-importing the value directly, so that they always observe the current setting.
+The relaxation theory and the verbosity of the progress output are both held
+as module-level variables rather than passed around explicitly, so that they
+can be set once and take effect throughout the package. Other modules read
+them as ``_settings.RELAXATION_THEORY``/``_settings.VERBOSE`` rather than
+importing the values directly, so that they always observe the current setting.
 
-The variable should always be changed through `set_relaxation_theory`, which
-validates the requested level of theory.
+The variables should always be changed through `set_relaxation_theory` and
+`set_verbose`, which validate the requested value.
 """
 
 # NOTE: Postponed evaluation of annotations, so that the modern union syntax can be
@@ -18,6 +19,9 @@ from __future__ import annotations
 # Level of theory for the relaxation superoperator.
 # 'sc' for semiclassical, 'qm' for quantum mechanical.
 RELAXATION_THEORY = 'sc'
+
+# Whether the progress messages of `_status.status` and `_status.status_section` are printed.
+VERBOSE = True
 
 
 def set_relaxation_theory(theory: str) -> None:
@@ -43,3 +47,28 @@ def set_relaxation_theory(theory: str) -> None:
     # Rebind the module-level variable so that every reader observes the change.
     global RELAXATION_THEORY
     RELAXATION_THEORY = theory
+
+
+def set_verbose(verbose: bool) -> None:
+    """
+    Set whether Rela2x prints progress messages during construction of the
+    superoperators.
+
+    Parameters
+    ----------
+    verbose : bool
+        Whether to print progress messages. Default is True.
+
+    Raises
+    ------
+    ValueError
+        If `verbose` is not a boolean.
+    """
+
+    # Reject anything other than an actual boolean.
+    if not isinstance(verbose, bool):
+        raise ValueError("Invalid verbose setting. Choose True or False.")
+
+    # Rebind the module-level variable so that every reader observes the change.
+    global VERBOSE
+    VERBOSE = verbose

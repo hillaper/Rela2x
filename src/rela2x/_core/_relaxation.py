@@ -1,9 +1,13 @@
 """
-Construction of the relaxation superoperator.
+Construction of the relaxation superoperator and the `RelaxationSuperoperator`
+class wrapping it.
 
 The individual terms of the relaxation superoperator are built here, separated
 by whether the two interactions involved are single-spin (alpha) or two-spin
 (beta), and assembled into the complete superoperator by `sop_R`.
+`RelaxationSuperoperator` then couples that matrix representation to the basis
+it is expressed in, and provides the analysis, filtering and approximation
+tools acting on it.
 
 NOTE: alpha is a single-spin interaction and beta is a two-spin interaction.
 See https://doi.org/10.1016/j.jmr.2024.107828
@@ -17,11 +21,19 @@ from __future__ import annotations
 from sympy.physics.quantum.cg import CG
 import numpy as np
 import sympy as smp
+import time
 
 from rela2x._core import _settings
 from rela2x._core._operators import SpinOperators, op_T_coupled_lq, vector_to_spherical_tensor
-from rela2x._core._spectral_density import J_w
-from rela2x._core._superoperators import sop_D, sop_double_commutator
+from rela2x._core._spectral_density import (
+    J_w,
+    J_w_isotropic_rotational_diffusion,
+    extract_J_w_symbols_and_args,
+)
+from rela2x._core._status import status
+from rela2x._core._symbols import w_symbol
+from rela2x._core._superoperators import Superoperator, sop_D, sop_double_commutator
+from rela2x._core._utils import upper_triangle_enumerate
 
 
 def sop_R_term(
@@ -101,8 +113,8 @@ def sop_R_term_alpha_alpha(
         Term in the relaxation superoperator, or a zero matrix of matching
         shape if the term is excluded by the secular approximation.
     """
-    w_s1 = smp.Symbol(f'\\omega_{{{alpha1_spin_name}}}', real=True)
-    w_s2 = smp.Symbol(f'\\omega_{{{alpha2_spin_name}}}', real=True)
+    w_s1 = w_symbol(alpha1_spin_name)
+    w_s2 = w_symbol(alpha2_spin_name)
 
     # Dirac delta function argument for the secular approximation
     delta_sec = q*(w_s1 - w_s2)
@@ -179,9 +191,9 @@ def sop_R_term_alpha_beta(
         Term in the relaxation superoperator, or a zero matrix of matching
         shape if the term is excluded by the secular approximation.
     """
-    w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
-    w_t1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
-    w_t2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
+    w_s = w_symbol(alpha_spin_name)
+    w_t1 = w_symbol(beta_spin_name1)
+    w_t2 = w_symbol(beta_spin_name2)
     
     delta_sec = (q1+q2)*w_s - q1*w_t1 - q2*w_t2
 
@@ -224,9 +236,9 @@ def sop_R_term_beta_alpha(
     See `sop_R_term_alpha_beta` for the parameter and return structure
     (with `beta`/`alpha` interaction order swapped accordingly).
     """
-    w_t1 = smp.Symbol(f'\\omega_{{{beta_spin_name1}}}', real=True)
-    w_t2 = smp.Symbol(f'\\omega_{{{beta_spin_name2}}}', real=True)
-    w_s = smp.Symbol(f'\\omega_{{{alpha_spin_name}}}', real=True)
+    w_t1 = w_symbol(beta_spin_name1)
+    w_t2 = w_symbol(beta_spin_name2)
+    w_s = w_symbol(alpha_spin_name)
 
     delta_sec = q1*w_t1 + q2*w_t2 - (q1+q2)*w_s
 
@@ -306,10 +318,10 @@ def sop_R_term_beta_beta(
         Term in the relaxation superoperator, or a zero matrix of matching
         shape if the term is excluded by the secular approximation.
     """
-    w1_t1 = smp.Symbol(f'\\omega_{{{beta1_spin_name1}}}', real=True)
-    w1_t2 = smp.Symbol(f'\\omega_{{{beta1_spin_name2}}}', real=True)
-    w2_t1 = smp.Symbol(f'\\omega_{{{beta2_spin_name1}}}', real=True)
-    w2_t2 = smp.Symbol(f'\\omega_{{{beta2_spin_name2}}}', real=True)
+    w1_t1 = w_symbol(beta1_spin_name1)
+    w1_t2 = w_symbol(beta1_spin_name2)
+    w2_t1 = w_symbol(beta2_spin_name1)
+    w2_t2 = w_symbol(beta2_spin_name2)
 
     delta_sec = q1_t1*w1_t1 + q2_t1*w1_t2 - q1_t2*w2_t1 - q2_t2*w2_t2
     
@@ -336,7 +348,7 @@ def sop_R_term_beta_beta(
 
 def sop_R(
     spin_operators: SpinOperators,
-    INCOHERENT_INTERACTIONS: dict,
+    incoherent_interactions: dict,
     keep_non_secular: bool=False,
 ) -> smp.MatrixBase:
     """
@@ -346,13 +358,13 @@ def sop_R(
     https://doi.org/10.1016/j.jmr.2024.107828, summing the alpha-alpha,
     alpha-beta, beta-alpha and beta-beta contributions (see `sop_R_term_alpha_alpha`,
     `sop_R_term_alpha_beta`, `sop_R_term_beta_alpha` and `sop_R_term_beta_beta`)
-    over every pair of mechanisms in `INCOHERENT_INTERACTIONS`.
+    over every pair of mechanisms in `incoherent_interactions`.
 
     Parameters
     ----------
     spin_operators : SpinOperators
         Spin system for which to compute the relaxation superoperator.
-    INCOHERENT_INTERACTIONS : dict
+    incoherent_interactions : dict
         Dictionary of incoherent interactions (see README.md for the required format).
     keep_non_secular : bool, optional
         Whether to keep non-secular terms in the relaxation superoperator.
@@ -366,21 +378,24 @@ def sop_R(
     Raises
     ------
     ValueError
-        If `INCOHERENT_INTERACTIONS` specifies an interaction dictionary that
+        If `incoherent_interactions` specifies an interaction dictionary that
         is not of the format described in README.md.
     """
+    # Record the start time for status reporting.
+    time_start = time.time()
+
     # Initialize the relaxation superoperator.
     R_final = smp.zeros(spin_operators.N_states**2, spin_operators.N_states**2, complex=True)
 
     # Prepare coupling vector for linear interactions
-    # NOTE: assumed always along z-axis (the magnetic field direction) 
+    # NOTE: assumed always along z-axis (the magnetic field direction)
     T_vector = vector_to_spherical_tensor([0, 0, 1])
 
-    print('\nComputing R for interaction pairs...')
+    status('Computing R for incoherent interaction pairs...')
 
     # Loop over all mechanism pairs
-    for mechanism1, properties1 in INCOHERENT_INTERACTIONS.items():
-        for mechanism2, properties2 in INCOHERENT_INTERACTIONS.items():
+    for mechanism1, properties1 in incoherent_interactions.items():
+        for mechanism2, properties2 in incoherent_interactions.items():
 
             # Single-spin single-spin mechanism pair
             if properties1[0][0] == '1' and properties2[0][0] == '1':
@@ -407,11 +422,11 @@ def sop_R(
                                 # Interaction names
                                 intr_name1 = mechanism1 + str(spin_1_index + 1)
                                 intr_name2 = mechanism2 + str(spin_2_index + 1)
-                                print(f'{intr_name1} * {intr_name2}')
+                                status(f'  {intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name = spin_operators.spinsystem[spin_1_index]
-                                spin_2_name = spin_operators.spinsystem[spin_2_index]
+                                spin_1_name = spin_operators.spin_system[spin_1_index]
+                                spin_2_name = spin_operators.spin_system[spin_2_index]
 
                                 # Loop over all common ranks and components
                                 for l in ls:
@@ -453,18 +468,18 @@ def sop_R(
                     if coupling_strength_1 != 0:
 
                         for (spin_2_index_i, spin_2_index_j), coupling_strength_2 \
-                                in np.ndenumerate(coupling_strengths_matrix2):
+                                in upper_triangle_enumerate(coupling_strengths_matrix2):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
                                 intr_name1 = mechanism1 + str(spin_1_index + 1)
                                 intr_name2 = mechanism2 + str(spin_2_index_i + 1) + str(spin_2_index_j + 1)
-                                print(f'{intr_name1} * {intr_name2}')
+                                status(f'  {intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name = spin_operators.spinsystem[spin_1_index]
-                                spin_2_name_i = spin_operators.spinsystem[spin_2_index_i]
-                                spin_2_name_j = spin_operators.spinsystem[spin_2_index_j]
+                                spin_1_name = spin_operators.spin_system[spin_1_index]
+                                spin_2_name_i = spin_operators.spin_system[spin_2_index_i]
+                                spin_2_name_j = spin_operators.spin_system[spin_2_index_j]
 
                                 for l in ls:
                                     # Loop over q1 and q2 values in the symbolic case
@@ -504,7 +519,8 @@ def sop_R(
 
                 ls = list(set(ranks1) & set(ranks2))
 
-                for (spin_1_index_i, spin_1_index_j), coupling_strength_1 in np.ndenumerate(coupling_strengths_matrix1):
+                for (spin_1_index_i, spin_1_index_j), coupling_strength_1 \
+                        in upper_triangle_enumerate(coupling_strengths_matrix1):
                     if coupling_strength_1 != 0:
 
                         for spin_2_index, coupling_strength_2 in enumerate(coupling_strengths2):
@@ -513,12 +529,12 @@ def sop_R(
                                 # Interaction names
                                 intr_name1 = mechanism1 + str(spin_1_index_i + 1) + str(spin_1_index_j + 1)
                                 intr_name2 = mechanism2 + str(spin_2_index + 1)
-                                print(f'{intr_name1} * {intr_name2}')
+                                status(f'  {intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name_i = spin_operators.spinsystem[spin_1_index_i]
-                                spin_1_name_j = spin_operators.spinsystem[spin_1_index_j]
-                                spin_2_name = spin_operators.spinsystem[spin_2_index]
+                                spin_1_name_i = spin_operators.spin_system[spin_1_index_i]
+                                spin_1_name_j = spin_operators.spin_system[spin_1_index_j]
+                                spin_2_name = spin_operators.spin_system[spin_2_index]
 
                                 for l in ls:
                                     for q1 in range(-1, 2):
@@ -555,23 +571,24 @@ def sop_R(
 
                 ls = list(set(ranks1) & set(ranks2))
 
-                for (spin_1_index_i, spin_1_index_j), coupling_strength_1 in np.ndenumerate(coupling_strengths_matrix1):
+                for (spin_1_index_i, spin_1_index_j), coupling_strength_1 \
+                        in upper_triangle_enumerate(coupling_strengths_matrix1):
                     if coupling_strength_1 != 0:
 
                         for (spin_2_index_i, spin_2_index_j), coupling_strength_2 \
-                                in np.ndenumerate(coupling_strengths_matrix2):
+                                in upper_triangle_enumerate(coupling_strengths_matrix2):
                             if coupling_strength_2 != 0:
 
                                 # Interaction names
                                 intr_name1 = mechanism1 + str(spin_1_index_i + 1) + str(spin_1_index_j + 1)
                                 intr_name2 = mechanism2 + str(spin_2_index_i + 1) + str(spin_2_index_j + 1)
-                                print(f'{intr_name1} * {intr_name2}')
+                                status(f'  {intr_name1} * {intr_name2}')
 
                                 # Handle chemically equivalent (homonuclear) spins
-                                spin_1_name_i = spin_operators.spinsystem[spin_1_index_i]
-                                spin_1_name_j = spin_operators.spinsystem[spin_1_index_j]
-                                spin_2_name_i = spin_operators.spinsystem[spin_2_index_i]
-                                spin_2_name_j = spin_operators.spinsystem[spin_2_index_j]
+                                spin_1_name_i = spin_operators.spin_system[spin_1_index_i]
+                                spin_1_name_j = spin_operators.spin_system[spin_1_index_j]
+                                spin_2_name_i = spin_operators.spin_system[spin_2_index_i]
+                                spin_2_name_j = spin_operators.spin_system[spin_2_index_j]
 
                                 for l in ls:
                                     for q1_d1 in range(-1, 2):
@@ -603,5 +620,179 @@ def sop_R(
             else:
                 raise ValueError('Invalid interaction dictionary. See README.md for details.')
             
-    print('R computed.')
+    status(f'R computed in {time.time() - time_start:.2f} seconds.\n')
     return R_final
+
+
+class RelaxationSuperoperator(Superoperator):
+    """
+    General class for the relaxation superoperator of a spin system.
+    Inherits from `Superoperator`.
+
+    See `Superoperator` and `Operator` for more information, including the
+    basis attributes and the matrix element lookup and filtering tools that
+    are shared with the other superoperators.
+
+    NOTE: Holds the incoherent part of the dynamics. The coherent part is held
+    by `HamiltonianSuperoperator`, and the two are combined by `LiouvillianSuperoperator`.
+
+    Parameters
+    ----------
+    sop_R : sympy.Matrix
+        Relaxation superoperator matrix representation.
+    basis_symbols : list of sympy.Symbol
+        Basis operator symbols.
+    basis_norms : list of sympy.Expr
+        Liouville norms of the (unnormalized) basis operators.
+    basis_indices : list of tuple
+        Basis operator indices, used for relaxation rate lookups and filtering.
+    """
+    def __init__(
+        self,
+        sop_R: smp.MatrixBase,
+        basis_symbols: list[smp.Expr],
+        basis_norms: list[smp.Expr],
+        basis_indices: list[tuple],
+    ) -> None:
+        """
+        Initialise the relaxation superoperator.
+
+        Parameters
+        ----------
+        sop_R : sympy.Matrix
+            Relaxation superoperator matrix representation.
+        basis_symbols : list of sympy.Symbol
+            Basis operator symbols.
+        basis_norms : list of sympy.Expr
+            Liouville norms of the (unnormalized) basis operators.
+        basis_indices : list of tuple
+            Basis operator indices, used for relaxation rate lookups and filtering.
+        """
+        Superoperator.__init__(self, sop_R, basis_symbols, basis_norms, basis_indices)
+
+    @property
+    def generator(self) -> smp.MatrixBase:
+        """
+        Generator of the relaxation equation of motion, ``-R``.
+
+        NOTE: The relaxation superoperator is positive-definite and enters the
+        equations of motion with a minus sign, hence the sign here.
+
+        Returns
+        -------
+        sympy.Matrix
+            Matrix representation of the generator.
+        """
+        return -self.op
+
+    def rate(
+        self,
+        spin_index_op_index_1: str,
+        spin_index_op_index_2: str | None=None,
+    ) -> smp.Expr | None:
+        """
+        Get the relaxation rate between two basis operators.
+
+        NOTE: The incoherent counterpart of `HamiltonianSuperoperator.frequency`. See
+        `Superoperator.element` for the format of the arguments.
+
+        Parameters
+        ----------
+        spin_index_op_index_1 : str
+            Spin index and operator index of the first basis operator.
+        spin_index_op_index_2 : str, optional
+            Spin index and operator index of the second basis operator. If
+            None, the auto-relaxation rate of `spin_index_op_index_1` is
+            returned. Default is None.
+
+        Returns
+        -------
+        sympy.Expr or None
+            Relaxation rate between the two operators, or None if either
+            operator is not found in the basis.
+        """
+        return self.element(spin_index_op_index_1, spin_index_op_index_2)
+
+    def to_isotropic_rotational_diffusion(
+        self,
+        fast_motion_limit: bool=False,
+        slow_motion_limit: bool=False,
+    ) -> None:
+        """
+        Substitute every J(w) function in the relaxation superoperator with
+        the isotropic rotational diffusion spectral density function.
+
+        Parameters
+        ----------
+        fast_motion_limit : bool, optional
+            Whether to use the fast-motion limit. Default is False.
+        slow_motion_limit : bool, optional
+            Whether to use the slow-motion limit. Default is False.
+        """
+        J_w_functions = [function for function in self.functions_in if 'J' in str(function)]
+        subst_dict = {}
+
+        # Build the substitution for every anisotropic (l > 0) spectral density function.
+        for J_w in J_w_functions:
+            # See extract_J_w_symbols_and_args and J_w_isotropic_rotational_diffusion.
+            intrs, lq, arg = extract_J_w_symbols_and_args(J_w)
+            if lq[0] > 0:
+                subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg,
+                                    fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
+        self.substitute(subst_dict)
+
+    def neglect_cross_correlated_terms(
+        self,
+        mechanism1: str | None=None,
+        mechanism2: str | None=None,
+    ) -> None:
+        """
+        Neglect the cross-correlated terms between `mechanism1` and
+        `mechanism2` in the relaxation superoperator.
+
+        NOTE: If `mechanism1` and `mechanism2` are both None, all
+        cross-correlated terms are neglected.
+
+        Parameters
+        ----------
+        mechanism1 : str, optional
+            Name of the first mechanism. Default is None.
+        mechanism2 : str, optional
+            Name of the second mechanism. If None, `mechanism1` is used. Default is None.
+        """
+        J_w_functions = [function for function in self.functions_in if 'J' in str(function) or 'G' in str(function)]
+
+        # Neglect all cross-correlated terms if mechanism1 and mechanism2 are both None.
+        if mechanism1 is None and mechanism2 is None:
+            for J_w in J_w_functions:
+                # See extract_J_w_symbols_and_args.
+                intrs, _, _ = extract_J_w_symbols_and_args(J_w)
+                if ',' in intrs[0]:
+                    self.substitute({J_w: 0})
+
+        # Otherwise, neglect cross-correlated terms between mechanism1 and mechanism2 only.
+        else:
+            if mechanism2 is None:
+                mechanism2 = mechanism1
+            for J_w in J_w_functions:
+                # See extract_J_w_symbols_and_args.
+                intrs, _, _ = extract_J_w_symbols_and_args(J_w)
+                if ',' in intrs[0]:
+                    if mechanism1 == mechanism2:
+                        if str(J_w).count(mechanism1) > 1:
+                            self.substitute({J_w: 0})
+                    else:
+                        if mechanism1 in str(J_w) and mechanism2 in str(J_w):
+                            self.substitute({J_w: 0})
+
+    def neglect_cross_relaxation(self) -> None:
+        """
+        Neglect all cross-relaxation terms (off-diagonal elements) in the relaxation superoperator.
+        """
+        op = self.op
+
+        # Retain the diagonal auto-relaxation elements and zero all off-diagonal ones.
+        # NOTE: A new matrix is constructed, so that the method also accepts an immutable
+        # self.op, as returned by, e.g., simplify().
+        self.op = smp.Matrix(op.shape[0], op.shape[1],
+                             lambda i, j: op[i, j] if i == j else 0)

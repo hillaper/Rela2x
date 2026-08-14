@@ -1,11 +1,40 @@
 # ––––– Rela²x –––––
-# *A*nalytic and *A*utomatic NMR relaxation theory
+# *A*nalytic and *A*utomatic NMR (relaxation) theory
 
 ## Description
 
-Rela²x is a freely available Python package that offers a collection of functions and classes for analytic and automatic high-field liquid-state NMR relaxation theory (and spin physics in general). 
+Rela²x is a freely available Python package for **analytic** and **automatic** (hence the a squared) 
+high-field liquid-state NMR theory. It builds the Liouville-space matrix representations of the superoperators that govern the dynamics of a spin system symbolically, and hands them back as *SymPy* expressions that you can read, manipulate, approximate and publish.
 
-The package provides tools to compute and analyze the Liouville-space matrix representation of the relaxation superoperator, *R*, for arbitrary small spin systems with any spin quantum numbers and relaxation mechanisms. It includes every possible cross-term between the interactions that drive relaxation. Approximations and simplifications for the analysis of *R*, and visualization tools, are also available. Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python.
+Rela²x was originally built for one thing, and it remains the package's distinctive contribution: 
+Symbolic Redfield relaxation theory derived automatically for arbitrary small spin systems with any spin quantum numbers and any relaxation mechanisms, including every possible cross-term between the interactions that drive relaxation. This incoherent part of the dynamics, the relaxation superoperator ***R***, is what the accompanying publication describes.
+
+Since version 0.0.3, Rela²x also includes the coherent part — the Hamiltonian superoperator ***H***, covering the Zeeman interaction (including the chemical shift) and the J-coupling — and combines the two into the Liouvillian ***L*** = −i[*H*, ·] − *R*, the generator of the full equation of motion. Each is available from a single function call:
+
+| | superoperator | describes | entry point |
+| --- | --- | --- | --- |
+| ***H*** | Hamiltonian | the coherent dynamics | `hamiltonian_superoperator` |
+| ***R*** | relaxation | the incoherent dynamics | `relaxation_superoperator` |
+| ***L*** | Liouvillian, *L* = −i[*H*, ·] − *R* | the full dynamics | `liouvillian_superoperator` |
+
+Around these come the tools to work with them: spherical tensor and Cartesian product operator bases with sorting and filtering, approximations and simplifications (isotropic rotational diffusion, neglect of cross-correlation and cross-relaxation), matrix-element lookup, visualization, and automatic construction of the equations of motion, exportable as LaTeX for publications, etc. 
+
+Everything rests on one physical assumption, the high-field limit, and it is applied consistently to the coherent and incoherent parts alike (see [The high-field approximation](#the-high-field-approximation)).
+The zero-field regime is not yet supported, but is planned for the future.
+
+Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
+
+## Notes
+
+Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code. 
+
+**Important:**
+This documentation contains the most up-to-date information regarding the code itself, and it differs in many respects from the publication. The underlying relaxation theory is the same, but the code has been updated and improved since the publication.
+
+**Erratum:**
+The irreducible spherical tensor components printed at the end of the publication have errors. However, the implementation in Rela²x is and has always been correct.
+
+The [API reference](#api-reference) below lists everything that `from rela2x import *` exposes. For the full detail of any individual function or class, refer to its docstring in the source modules under `src/rela2x/_core/`. (A thorough dedicated documentation page is planned for the future.)
 
 ## Releases
 
@@ -16,12 +45,11 @@ P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. M
 [https://doi.org/10.1016/j.jmr.2024.107828](https://doi.org/10.1016/j.jmr.2024.107828)
 
 **Rela²x 0.0.2:**  
-New features, bug fixes, type hints, naming consistency, documentation and cosmetic improvements. 
-<!-- The main additions are the Cartesian product operator basis (`basis='C'`) and analytical operator decomposition (`op_decomposition`).  -->
+New features, bug fixes, type hints, naming consistency, documentation and cosmetic improvements, and Cartesian product operator basis support.
 
 The most significant fixes concern the sorting of the product operator basis. The order in which the basis operators appear therefore differs from version 0.0.1, and from the figures in the publication; the matrix elements themselves are unaffected.
 
-Some names changed in this version:
+<!-- Some names changed in this version:
 
 | 0.0.1 | 0.0.2 |
 | --- | --- |
@@ -30,25 +58,42 @@ Some names changed in this version:
 | `T_symbol_spin_order`, `T_symbol_coherence_order`, `T_symbol_type`, `T_symbol_Nth_spin_projection` | `T_index_spin_order`, `T_index_coherence_order`, `T_index_type`, `T_index_spin_projection` |
 | `T_symbol_list_index` | `basis_index_list_index` |
 | `full_sort_T_product_basis`, and the individual sorting passes | `sort_T_product_basis`, together with `T_basis_sort_keys` |
-| `T_basis_split_to_coherence_orders` | removed; use `R.filter('c', ...)` |
-
-<!-- The `T_symbol_*` functions determined the properties of a basis operator by reading its printed symbol. The `T_index_*` functions that replace them read the basis operator indices instead (see Usage below). -->
+| `T_basis_split_to_coherence_orders` | removed; use `R.filter('c', ...)` | -->
 
 The full changelog is in the [0.0.2 release notes](https://github.com/hillaper/Rela2x/releases/tag/0.0.2). 
 
-## Notes
+**Rela²x 0.0.3:**  
+Coherent interactions. The Zeeman interaction (including the chemical shift) and the J-coupling interaction can now be computed as the Hamiltonian superoperator *H* (`hamiltonian_superoperator`), and combined with the relaxation superoperator into the Liouvillian *L* = −i[*H*, ·] − *R* (`liouvillian_superoperator`). The package was also reorganised from the single `rela2x.py` file into logical modules under `src/rela2x/_core/`. Several minor updates were also added here and there.
 
-Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code. 
+The basis attributes, the normalization to observables, the matrix element lookup and the filtering tools now live on the shared `Superoperator` class, so they are available on *R*, *H* and *L* alike.
 
-**Important:**
-This documentation contains the most up-to-date information regarding the code itself, and it differs in some respects from the publication. The underlying theory is the same, but the code has been updated and improved since the publication.
+The high-field secular approximation is now applied to the coherent interactions as well as to *R*, and against the same Larmor frequency symbols, so the two parts of the Liouvillian rest on the same assumption. In practice this means a J-coupling is treated as weak between spins with different isotope labels and strong between spins sharing one. `keep_non_secular` switches the approximation off in both parts at once. See [The high-field approximation](#the-high-field-approximation).
 
-**Erratum:**
-The irreducible spherical tensor components printed at the end of the publication have errors. However, the implementation in Rela²x is and has always been correct.
+<!-- The progress output printed while building *R*, *H* or *L* is now coherent across the package: every stage reports through the same mechanism, `liouvillian_superoperator` labels its two parts with clear section headers instead of printing the same "changing basis"/"final clean-ups" structure twice with nothing to tell them apart, and completion messages report elapsed time. `set_verbose(False)` silences it entirely. -->
 
-Only basic knowledge of Python is required. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
+<!-- Some names changed in this version:
 
-For detailed information on the functions and classes of Rela²x, refer to the documentation directly in the source modules under `src/rela2x/_core/`. (A thorough dedicated documentation page is planned for the future.)
+| 0.0.2 | 0.0.3 |
+| --- | --- |
+| `R_object_in_product_operator_basis` | `relaxation_superoperator` |
+| `equations_of_motion(R.op, R.basis_symbols, ...)` | `equations_of_motion(R, ...)` |
+| `basis_index_list_index` | `basis_index_position` |
+| `list_indexes` | `list_indices` |
+| `T` (temperature) | `temperature` |
+| `spinsystem` (argument and `SpinOperators` attribute) | `spin_system` |
+| `INCOHERENT_INTERACTIONS` (argument) | `incoherent_interactions` |
+| `SpinOperators.gen_*` | `SpinOperators._gen_*` |
+| `coherence_order_filter`, `spin_order_filter`, `type_filter` | now also take and return `basis_norms` |
+| `Lv_bracket`, `Lv_norm`, `Lv_amplitude` | `Liouville_bracket`, `Liouville_norm`, `Liouville_amplitude` |
+| `sop_lmul`, `sop_rmul` | `sop_left_mul`, `sop_right_mul` | -->
+
+<!-- The `equations_of_motion` row is a change of signature rather than a rename. It now takes the superoperator object itself, because the sign convention of the equations of motion differs between the superoperators: *R* is positive-definite and enters with a minus sign, whereas *L* is already the generator of the motion. Each object reports its own convention through its `generator` property, so relaxation superoperators and Liouvillians share a single implementation. Passing `R.op` would otherwise have produced a sign-flipped result without any error. -->
+
+<!-- A few parameter names changed as well, in functions that are always called positionally in practice: the operator argument of the basis filters and of `visualize_operator` is now `op`, and that of `visualize_many_operators` is `ops`. -->
+
+<!-- The remaining renames unify the naming across the package: `indices` rather than `indexes` throughout, `spin_system` matching the `spin_operators` argument it accompanies, ordinary lower-case argument names, and a leading underscore on the `SpinOperators` methods that are called only during construction. `T` was renamed because it collided with the spherical tensor operators that the rest of the package uses `T` for; the printed symbol is still `T`. -->
+
+<!-- Two bugs were fixed in the process. `filter` previously left `basis_norms` untouched, so a subsequent `to_observables` silently rescaled with the norms of operators that had already been removed. And the two-spin coupling matrices were read in full rather than upper-triangle-only, so a coupling matrix supplied in symmetric form silently counted every pair twice. -->
 
 ## Installation from PyPI
 The most recent release published on the Python Package Index (PyPI) can be installed with:
@@ -126,26 +171,105 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    spin_system = ['14N', '1H', '1H']
    ```
    
-   A collection of NMR isotopes and their spin quantum numbers is held in the `ISOTOPES` dictionary, which is brought into your namespace by the import above. The values are sourced from [this NMR table](https://www.kherb.io/docs/nmr_table.html). Each entry maps an isotope label to a `[spin quantum number, gyromagnetic ratio in MHz/T]` pair. If your preferred nucleus is not listed, feel free to add it. Adding a suffixed copy of an existing isotope is also how chemically inequivalent nuclei of the same isotope are given distinct chemical shifts:
+   A collection of NMR isotopes and their spin quantum numbers is held in the `ISOTOPES` dictionary, which is brought into your namespace by the import above. <!-- The values are sourced from [this NMR table](https://www.kherb.io/docs/nmr_table.html).  -->
+   Each entry maps an isotope label to a `[spin quantum number, gyromagnetic ratio in MHz/T]` pair. If your preferred nucleus is not listed, feel free to add it. Adding a suffixed copy of an existing isotope is also how chemically inequivalent nuclei of the same isotope are given distinct chemical shifts:
 
    ```python
    ISOTOPES['1H_X'] = ISOTOPES['1H']
    ```
+
+   The distinct label is what produces a distinct Larmor frequency symbol $\omega_{\mathrm{1H}}$, and that symbol is shared by *H* and *R* alike (see `w_symbol`). This is how the chemical shift enters: there is no separate shielding or chemical-shift symbol.
    
 **Choose general settings (optional):**
 
-   Rela²x currently supports one general setting included in the `settings.py` file.
+   Rela²x currently supports two general settings, held in `_core/_settings.py`.
    
    - `RELAXATION_THEORY` handles the level of theory used: semiclassical `'sc'`, or quantum mechanical (Lindbladian) `'qm'`.
+   - `VERBOSE` controls whether the entry points print their progress (section headers, timing, and per-mechanism messages) while building *R*, *H* or *L*.
    
-   The default value is `'sc'`. Note that `RELAXATION_THEORY` is not brought into your namespace by `from rela2x import *`, so assigning to a bare `RELAXATION_THEORY` in your own script has no effect. Set it through the `set_relaxation_theory` function instead. For instance:
+   The default values are `'sc'` and `True`. Note that neither `RELAXATION_THEORY` nor `VERBOSE` is brought into your namespace by `from rela2x import *`, so assigning to a bare name in your own script has no effect. Set them through `set_relaxation_theory` and `set_verbose` instead. For instance:
    
    ```python
    set_relaxation_theory('qm')
+   set_verbose(False)
    ```
    
-   selects the Lindbladian description of *R*.
+   selects the Lindbladian description of *R* and silences the progress output.
    
+**Define the coherent interactions:**
+
+   Coherent interactions are defined via a Python dictionary, in a 0/1-flag style:
+
+   ```python
+   coh_intrs = {
+       'Z': [1, 1, 1],
+       'J': [[0, 1, 1],
+             [0, 0, 1],
+             [0, 0, 0]]
+   }
+   ```
+
+   - `'Z'` is the Zeeman interaction, including the chemical shift. Its value is a list of `1`s and `0`s defining which spins carry the interaction. The Hamiltonian is $\hat H_Z = \sum_i \omega_i \hat S_z^{(i)}$, in the laboratory frame and in angular frequency units.
+
+   - `'J'` is the J-coupling interaction. Its value is a coupling matrix whose `1`s define which spins are coupled; only the upper triangle is read. The coupling constants $J_{ij}$ are ordinary frequencies (in Hz), converted internally by the factor of $2\pi$.
+
+     The high-field secular approximation is applied here (see [The high-field approximation](#the-high-field-approximation) for the same treatment applied to *R*, below). The longitudinal term $\hat S_z^{(i)}\hat S_z^{(j)}$ commutes with the Zeeman Hamiltonian and is always retained, whereas the flip-flop term $\hat S_x^{(i)}\hat S_x^{(j)} + \hat S_y^{(i)}\hat S_y^{(j)}$ oscillates at the difference of the two Larmor frequencies and is retained only when that difference vanishes. So
+
+     $$ \hat H_J = \sum_{i<j} 2\pi J_{ij}\, \hat S_z^{(i)}\hat S_z^{(j)} \quad\text{(heteronuclear, weak coupling)}, $$
+     $$ \hat H_J = \sum_{i<j} 2\pi J_{ij}\, \hat{\mathbf S}^{(i)} \cdot \hat{\mathbf S}^{(j)} \quad\text{(homonuclear, strong coupling)}. $$
+
+     The test is made on the same Larmor frequency symbols that the secular approximation of *R* uses below, so spins sharing an isotope label are degenerate and spins carrying distinct labels are not. `keep_non_secular=True` restores the full dot product for every pair.
+
+   A missing key means the mechanism is absent, so `{}` gives a vanishing Hamiltonian and `{'J': ...}` alone gives J-coupling without Zeeman terms.
+
+**Compute the matrix representation of *H*, convert it to the product operator basis, and create a `HamiltonianSuperoperator` object:**
+
+   ```python
+   H = hamiltonian_superoperator(spin_system, coh_intrs, basis='T', sorting='v1', keep_non_secular=False)
+   ```
+
+   The `hamiltonian_superoperator` function takes as input the `spin_system` and `coh_intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *H* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
+
+   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `_core/_basis.py`). `keep_non_secular` allows keeping non-secular terms, exactly as above.
+
+   <!-- For the Zeeman interaction alone, *H* is diagonal in the spherical tensor basis, with each element given by $\sum_i q_i \omega_i$ over the spins carrying a non-identity operator: each basis operator simply precesses at its own coherence frequency. The J-coupling then adds off-diagonal elements, which connect in-phase and antiphase coherences — the product-operator picture of J evolution. -->
+
+   The function returns a `HamiltonianSuperoperator` object.
+
+   *Attributes.* These come from the shared `Superoperator` base class, so they are present on *R* and *L* in exactly the same way:
+
+   - `op` — the matrix representation of *H*.
+   - `symbols_in` — all symbols appearing in *H*.
+   - `functions_in` — all functions appearing in *H*.
+   - `basis_symbols` — the basis operator symbols of the chosen product operator basis.
+   - `basis_norms` — the Liouville norms of the (unnormalized) basis operators.
+   - `basis_indices` — the basis operator indices. Each entry is a tuple describing one basis operator, holding one item per spin that carries something other than the identity operator. For the spherical tensor basis the items are `(spin index, l, q)` triples, and for the Cartesian basis they are `(spin index, direction)` pairs. Spin indices start from 1, matching the operator symbols. The identity operator of the whole system is the empty tuple. For instance, in a two-spin system, $\hat T_{10}^{(1)} \hat T_{1-1}^{(2)}$ has the index `((1, 1, 0), (2, 1, -1))`.
+   - `generator` — the matrix that actually drives the equations of motion. Each superoperator carries its own sign convention here: for *H* it is $-i[\hat H, \cdot]$, for *R* it is $-R$, and for *L* it is *L* itself. This is what `equations_of_motion` reads.
+
+   <!-- Note that `H.op` holds the commutation superoperator [*H*, ·] itself, without the factor of −i of the Liouville-von Neumann equation, so that its matrix elements are frequencies; that factor is applied when *H* is combined with *R* into the Liouvillian, below.  -->
+
+   <!-- The `T_index_*` functions use these to determine the spin order, coherence order, type and individual spin projections of a basis operator, and the sorting and filtering tools are built on them. -->
+
+   *Shared methods.* Also provided by `Superoperator`, and likewise available on *R* and *L*:
+
+   - `to_basis(basis)` performs a change of basis using a list of basis operators `basis`.
+
+   - `to_observables()` fixes the basis operator normalization, so that the matrix elements correspond to observables. The entry points call this for you.
+
+   - `substitute(substitutions_dict)` substitutes symbols and functions with given numerical values. This allows easy conversion to NumPy arrays for numerical use.
+
+   - `visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=8)` visualizes the matrix as a nonzero-pattern plot. If desired, only certain sections can be visualized via `rows_start` and `rows_end`. A legend with the basis operator symbols will be drawn if `basis_symbols` is provided. Font size can be adjusted for large matrices.
+
+   - `element(spin_index_op_index_1, spin_index_op_index_2=None)` returns the matrix element between two basis operators. For the spherical tensor basis, the `spin_index_op_index_X` arguments must be strings of the form `'110'`, where the first number refers to the index of the spin, the second number refers to the rank *l*, and the remaining characters refer to the component *q* of that operator. Negative projections are written with the minus sign, so *q* = -1 of rank *l* = 1 on spin 1 is `'11-1'`. Product operators are simply of the form `'110*210'`, or `'110*21-1'`. Providing `spin_index_op_index_1` only returns the diagonal element of that operator. For the Cartesian basis, `spin_index_op_index_X` are of the form `'1x'`, `'1z*2z'`, etc.
+
+   - (Only available for the spherical tensor basis): `filter(filter_name, filter_value)` filters out potentially uninteresting regions based on given criteria. `filter_name` must be one of the following: 'c' for coherence order, 's' for spin order, or 't' for type. This determines the criteria for filtration. `filter_value` is an integer or a list of integers depending on the filtration type (see the documentation in `_core/_basis.py`) and determines which values are kept (not filtered out). For instance, calling `H.filter('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
+
+   *Coherent-specific methods.* These belong to `HamiltonianSuperoperator`, and on a Liouvillian they are reached through `L.H`:
+
+   - `frequency(spin_index_op_index_1, spin_index_op_index_2=None)` returns the coherent frequency between two basis operators — the coherent counterpart of `rate` below, taking exactly the same arguments.
+
+   The best way to get acquainted is to try these functions yourself!
+
 **Define the incoherent interactions that drive relaxation:**
 
    Incoherent interactions are defined via a Python dictionary with key-value pairs of the following type:
@@ -172,39 +296,24 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
                      [2])
    }
    ```
-   
+
+   Note the difference from `coh_intrs` above: there, the key *is* the mechanism, and only `'Z'` and `'J'` are accepted; here, the key is a free cosmetic label and the type lives in the value.
+
 **Compute the matrix representation of *R*, convert it to the product operator basis, and create a `RelaxationSuperoperator` object:**
 
    ```python
-   R = R_object_in_product_operator_basis(spin_system, intrs, basis='T', sorting='v1', keep_non_secular=False)
+   R = relaxation_superoperator(spin_system, intrs, basis='T', sorting='v1', keep_non_secular=False)
    ```
 
-   The `R_object_in_product_operator_basis` function takes as input the `spin_system` and `intrs` variables as defined above, information about which product operator basis to use, and optionally about how to sort the basis via `sorting`. It is useful to represent *R* in a basis where it achieves a block-diagonal form. A good basis for this purpose is the direct product basis of spherical tensor operators, provided via `basis='T'`. For a system of spin-1/2 nuclei, the Cartesian product operator basis can also be used by choosing `basis='C'`.
-   
-   Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `_core/_basis.py`). `keep_non_secular` allows to keep non-secular terms in the relaxation superoperator.
+   Takes the same `basis`, `sorting` and `keep_non_secular` arguments as `hamiltonian_superoperator` above, with the same meaning.
 
    Note that the non-unit norms of observables are taken into account in the relaxation rates, i.e., the matrix elements. The rates directly correspond to observables.
 
-   The function returns a `RelaxationSuperoperator` object that has the following attributes:
+   The function returns a `RelaxationSuperoperator` object. It shares the attributes and shared methods described for *H* above (`op`, `symbols_in`, `functions_in`, `basis_symbols`, `basis_norms`, `basis_indices`, `generator`, `to_basis`, `to_observables`, `substitute`, `visualize`, `element`, `filter`), plus its own:
 
-   - `op` returns the matrix representation of *R*.
-   - `symbols_in` returns all symbols appearing in *R*.
-   - `functions_in` returns all functions appearing in *R*.
-   - `basis_symbols` returns all basis operator symbols corresponding to the chosen direct product operator basis.
-   - `basis_indices` returns the basis operator indices (see below). Each entry of `basis_indices` is a tuple describing one basis operator, holding one item per spin that carries something other than the identity operator. For the spherical tensor basis the items are `(spin index, l, q)` triples, and for the Cartesian basis they are `(spin index, direction)` pairs. Spin indices start from 1, matching the operator symbols. The identity operator of the whole system is described by an empty tuple. For instance, in a two-spin system, $\hat T_{10}^{(1)} \hat T_{1-1}^{(2)}$ has the index `((1, 1, 0), (2, 1, -1))`.
+   *Relaxation-specific methods.* These belong to `RelaxationSuperoperator`, and on a Liouvillian they are reached either directly (see below) or through `L.R`:
 
-   <!-- The `T_index_*` functions use these to determine the spin order, coherence order, type and individual spin projections of a basis operator, and the sorting and filtering tools are built on them. -->
-
-   <!-- `RelaxationSuperoperator` has also the following methods: -->
-   and the following methods:
-
-   - `to_basis(basis)` performs a change of basis using a list of basis operators `basis`.
-
-   - `substitute(substitutions_dict)` substitutes symbols and functions in *R* with given numerical values. This allows easy conversion to NumPy arrays for numerical use.
-
-   - `visualize(rows_start=0, rows_end=None, basis_symbols=None, fontsize=8)` visualizes *R* as a matrix plot. If desired, only certain sections of *R* can be visualized via `rows_start` and `rows_end`. A legend with the basis operator symbols will be drawn if `basis_symbols` is provided. Font size can be adjusted for large matrices.
-
-   - `rate(spin_index_op_index_1, spin_index_op_index_2=None)` returns the relaxation rate between two observables. For the spherical tensor basis, the `spin_index_op_index_X` arguments must be strings of the form `'110'`, where the first number refers to the index of the spin, the second number refers to the rank *l*, and the remaining characters refer to the component *q* of that operator. Negative projections are written with the minus sign, so *q* = -1 of rank *l* = 1 on spin 1 is `'11-1'`. Product operators are simply of the form `'110*210'`, or `'110*21-1'`. Providing `spin_index_op_index_1` only will return the auto-relaxation rate of that operator. If `spin_index_op_index_2` is also provided, the cross-relaxation rate between those two operators is returned (see the examples provided in the repository). For the Cartesian basis, `spin_index_op_index_X` are of the form `'1x'`, `'1z*2z'`, etc.
+   - `rate(spin_index_op_index_1, spin_index_op_index_2=None)` returns the relaxation rate between two observables — the relaxation-flavoured name for `element`, taking exactly the same arguments. Providing one operator returns its auto-relaxation rate; providing two returns the cross-relaxation rate between them (see the examples provided in the repository).
 
    - `to_isotropic_rotational_diffusion(fast_motion_limit=False, slow_motion_limit=False)` applies the isotropic rotational diffusion model with the fast-motion or slow-motion limit approximation if desired.
 
@@ -212,18 +321,37 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `neglect_cross_relaxation()` neglects all cross-relaxation in *R*, setting every off-diagonal element to zero and leaving only the auto-relaxation rates on the diagonal. Note the distinction from the previous method: cross-*correlation* is between two interaction mechanisms, whereas cross-*relaxation* is between two basis operators.
 
-   - (Only available for the spherical tensor basis): `filter(filter_name, filter_value)` filters out potentially uninteresting regions of *R* based on given criteria. `filter_name` must be one of the following: 'c' for coherence order, 's' for spin order, or 't' for type. This determines the criteria for filtration. `filter_value` is an integer or a list of integers depending on the filtration type (see the documentation in `_core/_basis.py`) and determines which values are kept (not filtered out) in *R*. For instance, calling `R.filter('c', [0])` would filter out those sections that correspond to basis operators with coherence order other than 0.
-
-   The best way to get acquainted is to try these functions yourself!
-   
-**After *R* is computed, construct the resulting relaxation equations of motion for the observables:**
+**Combine *H* and *R* into the Liouvillian *L*, the generator of the full equation of motion:**
 
    ```python
-   eoms = equations_of_motion(R.op, R.basis_symbols, expectation_values=True, included_operators=None)
+   L = liouvillian_superoperator(spin_system, coh_intrs, intrs, basis='T', sorting='v1', keep_non_secular=False)
    ```
 
-   Here, `R.op` is the matrix representation of *R*, `R.basis_symbols` is the list of basis operator symbols, and the rest are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object. The outcome depends on `RELAXATION_THEORY`, because the semiclassical and Lindbladian master equations are different.
-   
+   `liouvillian_superoperator` takes the coherent dictionary first, then the incoherent one, builds both parts against a **single shared basis**, and returns a `LiouvillianSuperoperator` object with
+
+   - `op` returning the combination $L = -i[\hat H, \cdot] - R$,
+   - `H` and `R` returning the two parts, which remain fully usable — `L.H.frequency(...)`, `L.R.rate(...)`, and `L.element(...)` for the combined matrix element, which carries both a coherent frequency and a relaxation rate:
+
+   ```python
+   print('coherent   (L.H.frequency):', L.H.frequency('110'))
+   print('incoherent (L.R.rate)     :', L.R.rate('110'))
+   print('combined   (L.element)    :', L.element('110'))
+   ```
+
+   The relaxation-only approximations (`to_isotropic_rotational_diffusion`, `neglect_cross_correlated_terms`, `neglect_cross_relaxation`) are available directly on the `LiouvillianSuperoperator` and act on its relaxation part, leaving the coherent terms untouched; `to_basis`, `to_observables`, `substitute` and `filter` act on both parts. In every case the combination is rebuilt from the parts, so `L.op` and `L.H`/`L.R` can never disagree.
+
+   Combining the parts after the normalization to observables is exact, because that rescaling is a diagonal similarity transform and therefore distributes over the sum.
+
+   Passing an empty `intrs` gives a purely coherent, undamped Liouvillian, and passing an empty `coh_intrs` recovers the relaxation-only dynamics — so *H* and *R* alone are really just the two limits of *L*.
+
+**After *R*, *H* or *L* is computed, construct the resulting equations of motion for the observables:**
+
+   ```python
+   eoms = equations_of_motion(L, expectation_values=True, included_operators=None)
+   ```
+
+   Here the superoperator object itself is passed, not its matrix representation — this works identically for *R*, *H* or *L*, since each object supplies its own sign convention through its `generator` property, so nothing else has to change. The remaining arguments are for cosmetic purposes (try it yourself). The returned `eoms` is a *SymPy* equation object. The outcome depends on `RELAXATION_THEORY`, because the semiclassical and Lindbladian master equations are different.
+
 **Save the equations of motion in LaTeX format to the current working directory as a .txt file for further use in, for example, publications:**
 
    ```python
@@ -232,17 +360,150 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    `savename` is an arbitrary string.
 
+## The high-field approximation
+
+The derivation of *R* (see the publication) rests on <!-- the secular approximation with respect to the Zeeman Hamiltonian, and the coherent part is built under exactly the same assumption, using the same Larmor frequency symbols. The two parts of the Liouvillian are therefore consistent with one another by construction, and `keep_non_secular=True` switches the approximation off in both at once. -->
+the high-field approximation, so that the Zeeman Hamiltonian is assumed as the dominant coherent interaction. 
+
+<!-- Two consequences are worth knowing. -->
+A consequence of this related to the secular approximation worth knowing:
+
+**Everything is decided by Larmor frequency differences.** A term survives the secular approximation if the frequency at which it oscillates in the interaction frame vanishes. For the J-coupling this means that the flip-flop term is kept between spins sharing an isotope label and dropped otherwise, and for *R* it means that the secular test never sees the J-coupling at all. That is the correct leading-order treatment at high field, where $J \ll \omega$: the J-coupling is too small to change which terms are secular. It also means Rela²x will not describe a regime where that ordering fails.
+
+<!-- **The deviation from equilibrium is exact.** Because the secular coherent part commutes with the Zeeman Hamiltonian, it also commutes with the high-temperature equilibrium state, $[\hat H, \hat \rho_{\mathrm{eq}}] = 0$. Writing the semiclassical equations of motion for the deviations from thermal equilibrium is therefore exact within the high-field limit, with no leftover $-i[\hat H, \hat\rho_{\mathrm{eq}}]$ term. Retaining the non-secular terms breaks this, to the order of $J/\omega$. -->
+
+## API reference
+
+For reference: the Usage walkthrough above tells the whole story of building *H*, *R* and *L*, and covers the handful of names needed for ordinary work. Everything below is the rest of the public namespace — building blocks Rela²x uses internally and exposes because they are useful on their own. `from rela2x import *` brings 69 names into your namespace in total; only names related to spin physics or to the package's main functionality are exposed this way. The internal plumbing behind them (string/index parsing, basis-sorting machinery, the individual relaxation/Hamiltonian term-builders, and similar helpers) remains fully usable, just not part of the flat namespace — reach it via its submodule under `rela2x._core` if you need it. Grouped below by layer, roughly from the top down; full documentation for every one of them lives in the docstrings, under `src/rela2x/_core/`.
+
+### Entry points
+
+| | |
+| --- | --- |
+| `hamiltonian_superoperator(spin_system, coherent_interactions, basis='T', sorting='v1', keep_non_secular=False)` | Compute *H* in a product operator basis |
+| `relaxation_superoperator(spin_system, incoherent_interactions, basis='T', sorting='v1', keep_non_secular=False)` | Compute *R* in a product operator basis |
+| `liouvillian_superoperator(spin_system, coherent_interactions, incoherent_interactions, basis='T', sorting='v1', keep_non_secular=False)` | Compute both and combine them into *L* |
+| `set_relaxation_theory(theory)` | Select `'sc'` (semiclassical) or `'qm'` (Lindbladian) |
+| `set_verbose(verbose)` | Toggle the progress output of the entry points |
+
+### Superoperator classes
+
+| | |
+| --- | --- |
+| `Operator` | Base class: a matrix representation plus its symbols and functions |
+| `Superoperator` | Adds the basis attributes, `to_observables`, `element`, `filter` and `generator` |
+| `HamiltonianSuperoperator` | *H*: adds `frequency` |
+| `RelaxationSuperoperator` | *R*: adds `rate`, the relaxation counterpart of `frequency`, and the relaxation approximations |
+| `LiouvillianSuperoperator` | *L*: holds `H` and `R`, and keeps `op` in step with them |
+
+### Spin systems and isotopes
+
+| | |
+| --- | --- |
+| `ISOTOPES` | Isotope table, mapping a label to `[spin quantum number, gyromagnetic ratio in MHz/T]` |
+| `spin_quantum_numbers(isotopes)` | Look up the spin quantum numbers of a list of isotopes |
+| `SpinOperators(spin_system)` | The spin operators of a spin system; the object every builder below takes |
+
+`SpinOperators` exposes `spin_system`, `S`, `N_spins`, `N_states`, the many-spin Cartesian operators `E`, `Sx`, `Sy`, `Sz`, `Sp`, `Sm`, the spherical tensor operators `T` (a `{(l, q): matrix}` dict per spin), and a `*_symbol` counterpart for each.
+
+### Hilbert-space operators
+
+| | |
+| --- | --- |
+| `op_Sx(S)`, `op_Sy(S)`, `op_Sz(S)`, `op_Sp(S)`, `op_Sm(S)` | Single-spin angular momentum operators |
+| `op_Svec(S)` | The Cartesian vector operator, as a list |
+| `op_T(S, l, q)` | Single-spin spherical tensor operator |
+
+### Liouville space
+
+| | |
+| --- | --- |
+| `vectorize(op)`, `vectorize_all(ops)` | Vectorize operators into Liouville-space supervectors |
+| `sop_left_mul(op)`, `sop_right_mul(op)` | Left- and right-multiplication superoperators |
+| `sop_commutator(op)` | The commutation superoperator [op, ·] |
+| `sop_double_commutator(op1, op2)` | The double-commutation superoperator |
+| `sop_D(op1, op2)` | The Lindbladian dissipation superoperator |
+
+### Product operator bases
+
+| | |
+| --- | --- |
+| `T_product_basis_and_symbols(spin_operators, sorting='v1')` | Spherical tensor basis, symbols, norms and indices — sorted |
+| `Cartesian_product_basis_and_symbols(spin_operators)` | The same for the Cartesian basis |
+
+Basis operator indices, the tuples returned above and described under [Usage](#usage), can be read (spin order, coherence order, ...), converted from strings such as `'110'` or `'1z*2z'`, and filtered — see `Superoperator.filter` and `.element` for the user-facing versions of this machinery.
+
+### Symbols
+
+| | |
+| --- | --- |
+| `w_symbol(spin_name)` | Larmor frequency $\omega$ of a spin — shared by *H* and *R* |
+| `J_coupling_symbol(spin_index_1, spin_index_2)` | J-coupling constant, in Hz |
+| `op_S_symbol(direction, index)`, `op_T_symbol(l, q, index)` | Printed operator symbols |
+| `product_op_S_symbol(...)`, `product_op_T_symbol(...)` | Products thereof |
+| `expectation_value(op_symbol)`, `f_expectation_value_t(op_symbol)` | Observable and time-dependent observable symbols |
+
+### Spectral densities
+
+| | |
+| --- | --- |
+| `J_w(intr1, intr2, l, argument)` | The abstract spectral density function *J*(ω) of an interaction pair |
+| `J_w_isotropic_rotational_diffusion(...)` | Its isotropic rotational diffusion form |
+| `Lorentzian(w, tau_c, ...)` | A Lorentzian, with optional motional limits |
+| `Schofield_theta(w)` | Thermal correction factor of the quantum mechanical theory |
+
+### Superoperator construction
+
+The engines behind the entry points, for when you want the raw matrix rather than the object.
+
+| | |
+| --- | --- |
+| `op_H_Z(spin_operators, coupling_strengths)` | The Zeeman Hamiltonian, including the chemical shift |
+| `op_H_J(spin_operators, coupling_strengths_matrix, keep_non_secular=False)` | The J-coupling Hamiltonian |
+| `op_H(spin_operators, coherent_interactions, keep_non_secular=False)` | The total coherent Hamiltonian |
+| `sop_H(spin_operators, coherent_interactions, keep_non_secular=False)` | Its commutation superoperator |
+| `sop_R(spin_operators, incoherent_interactions, keep_non_secular=False)` | The relaxation superoperator matrix |
+
+### Equations of motion
+
+| | |
+| --- | --- |
+| `equations_of_motion(superoperator, expectation_values=True, included_operators=None)` | Build the differential equations for the observables |
+| `equations_of_motion_to_latex(eqs, savename)` | Write them to a LaTeX file |
+
+### Linear algebra
+
+| | |
+| --- | --- |
+| `Kronecker_product(*m)` | Symbolic Kronecker product |
+| `commutator(op1, op2)` | Symbolic commutator |
+| `Liouville_bracket(op1, op2)`, `Liouville_norm(op)`, `Liouville_amplitude(op1, op2)` | Hilbert–Schmidt inner product, norm and amplitude |
+| `op_change_of_basis(op, basis)` | Change of basis |
+| `op_decomposition(op, basis, basis_symbols)` | Decompose an operator in a basis set |
+
+### Visualization
+
+| | |
+| --- | --- |
+| `visualize_operator(op, ...)` | Nonzero-pattern plot of one matrix |
+| `visualize_many_operators(ops, ...)` | The combined pattern of several, for comparison |
+| `matrix_nonzeros(matrix)` | The underlying 0/1 mask |
+
+### Symbolic constants
+
+`hbar`, `k_B`, `mu_0`, `y_0` (an arbitrary $\gamma$), `w_0` (an arbitrary $\omega$), `B` (magnetic field), `temperature`, `beta` ($\hbar/k_\mathrm{B}T$), `t` (time), `tau`, `tau_c` (correlation time). All are *SymPy* symbols, ready to substitute into expressions.
+
 ## Examples
 
-Five example notebooks that showcase the usage of Rela²x are included in the repository.
+Seven example notebooks that showcase the usage of Rela²x are included in the repository. The last two, `rela2x_example5_coherent_interactions.ipynb` and `rela2x_example6_liouvillian.ipynb`, cover the coherent interactions and the Liouvillian introduced in 0.0.3: the Hamiltonian superoperator on its own, and combined with the relaxation superoperator into the full dynamics.
 
 ## Warnings
 
-Rela²x is not designed for spin systems where the dimension of *R* exceeds ~150, and should be used with caution in such cases. Specifically, displaying the entire matrix `R.op` may cause Jupyter Notebook to crash. Large systems can nevertheless be computed, and the `rate` function can be useful in these scenarios.
+Rela²x is not designed for spin systems where the dimension of the superoperators exceeds ~150, and should be used with caution in such cases. Specifically, displaying an entire matrix such as `H.op`, `R.op` or `L.op` may cause Jupyter Notebook to crash. Large systems can nevertheless be computed, and the `element` method (`frequency` for *H*, `rate` for *R*) can be useful in these scenarios.
 
 ## Advanced Users
 
-Additional features not covered in this guide can be found in the source modules under `src/rela2x/_core/`. The code is well-documented, and advanced Python/SymPy users should find it relatively straightforward to navigate.
+The [API reference](#api-reference) lists the whole public namespace, including the lower-level building blocks that the Usage walkthrough does not touch. The code is well-documented, and advanced Python/SymPy users should find the source modules under `src/rela2x/_core/` relatively straightforward to navigate.
 
 ## License
 

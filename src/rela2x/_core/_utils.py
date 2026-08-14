@@ -11,6 +11,8 @@ away parts of the relaxation superoperator.
 # in pyproject.toml.
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import hashlib
 import itertools
 
@@ -164,7 +166,7 @@ def cut_matrix(
 
 
 # List operations
-def list_indexes(lst: list) -> list[int]:
+def list_indices(lst: list) -> list[int]:
     """
     Return the valid indices of a list.
 
@@ -221,3 +223,29 @@ def all_combinations(
         all_combinations = list(reversed(all_combinations))
 
     return all_combinations
+
+
+def upper_triangle_enumerate(matrix: list[list[int]]) -> Iterator[tuple[tuple[int, int], int]]:
+    """
+    Enumerate the upper triangle of a two-spin coupling matrix.
+
+    NOTE: A drop-in replacement for ``numpy.ndenumerate`` that visits each spin
+    pair exactly once. Only the upper triangle of a coupling matrix carries
+    meaning, so a matrix supplied in symmetric form would otherwise contribute
+    every pair twice.
+
+    Parameters
+    ----------
+    matrix : list of list of int
+        Coupling matrix, of which only the upper triangle is read.
+
+    Yields
+    ------
+    tuple
+        Pair of spin indices and the coupling strength found there, as
+        ``((i, j), matrix[i][j])`` with ``i < j``.
+    """
+    # Visit each unordered spin pair exactly once.
+    for i in range(len(matrix)):
+        for j in range(i + 1, len(matrix)):
+            yield (i, j), matrix[i][j]

@@ -1,20 +1,21 @@
 """
 Public package namespace for Rela²x.
 
-Rela²x provides analytic and automatic high-field liquid-state NMR relaxation
-theory. The package is intended to be imported as::
+Rela²x provides analytic and automatic high-field liquid-state NMR theory,
+building the relaxation superoperator, the Hamiltonian superoperator and the
+Liouvillian combining the two. The package is intended to be imported as::
 
     from rela2x import *
 
 so that the functionality is available directly, as in the example notebooks.
-The theory is described in::
+The relaxation theory is described in::
 
     P. Hilla, J. Vaara, J. Magn. Reson., 2025.
     https://doi.org/10.1016/j.jmr.2024.107828
 """
 
 # Re-export the public core functionality under the package namespace.
-from rela2x._core._settings import set_relaxation_theory
+from rela2x._core._settings import set_relaxation_theory, set_verbose
 from rela2x._core._constants import (
     hbar,
     k_B,
@@ -22,7 +23,7 @@ from rela2x._core._constants import (
     y_0,
     w_0,
     B,
-    T,
+    temperature,
     beta,
     t,
     tau,
@@ -35,21 +36,11 @@ from rela2x._core._nmr_isotopes import (
 from rela2x._core._la import (
     Kronecker_product,
     commutator,
-    Lv_bracket,
-    Lv_norm,
-    Lv_amplitude,
+    Liouville_bracket,
+    Liouville_norm,
+    Liouville_amplitude,
     op_change_of_basis,
     op_decomposition,
-)
-from rela2x._core._utils import (
-    string_to_number,
-    sort_interactions,
-    pick_from_list,
-    pick_from_matrix,
-    cut_list,
-    cut_matrix,
-    list_indexes,
-    all_combinations,
 )
 from rela2x._core._symbols import (
     op_S_symbol,
@@ -58,6 +49,8 @@ from rela2x._core._symbols import (
     product_op_T_symbol,
     expectation_value,
     f_expectation_value_t,
+    J_coupling_symbol,
+    w_symbol,
 )
 from rela2x._core._operators import (
     op_Sx,
@@ -66,48 +59,23 @@ from rela2x._core._operators import (
     op_Sp,
     op_Sm,
     op_Svec,
-    vector_to_spherical_tensor,
     op_T,
-    op_T_coupled_lq,
-    many_spin_operator,
     SpinOperators,
 )
 from rela2x._core._superoperators import (
     vectorize,
     vectorize_all,
-    sop_rmul,
-    sop_lmul,
+    sop_right_mul,
+    sop_left_mul,
     sop_commutator,
     sop_double_commutator,
     sop_D,
-)
-from rela2x._core._basis import (
-    T_index_spin_order,
-    T_index_coherence_order,
-    T_index_type,
-    T_index_spin_projection,
-    T_index_from_string,
-    S_index_from_string,
-    basis_index_list_index,
-    coherence_order_filter,
-    spin_order_filter,
-    type_filter,
-    Cartesian_product_basis,
-    Cartesian_product_basis_symbols,
-    Cartesian_product_basis_and_symbols,
-    T_product_basis,
-    T_product_basis_symbols,
-    Cartesian_product_basis_indices,
-    T_product_basis_indices,
-    T_index_coherence_sort_key,
-    T_index_projection_sort_key,
-    T_basis_sort_keys,
-    sort_T_product_basis,
-    T_product_basis_and_symbols,
-)
-from rela2x._core._operator_classes import (
     Operator,
     Superoperator,
+)
+from rela2x._core._basis import (
+    Cartesian_product_basis_and_symbols,
+    T_product_basis_and_symbols,
 )
 from rela2x._core._visualization import (
     matrix_nonzeros,
@@ -119,34 +87,38 @@ from rela2x._core._spectral_density import (
     Schofield_theta,
     J_w,
     J_w_isotropic_rotational_diffusion,
-    extract_J_w_symbols_and_args,
 )
-from rela2x._core._relaxation import (
-    sop_R_term,
-    sop_R_term_alpha_alpha,
-    sop_R_term_alpha_beta,
-    sop_R_term_beta_alpha,
-    sop_R_term_beta_beta,
-    sop_R,
+from rela2x._core._relaxation import sop_R, RelaxationSuperoperator
+from rela2x._core._hamiltonian import (
+    op_H_Z,
+    op_H_J,
+    op_H,
+    sop_H,
+    HamiltonianSuperoperator,
 )
-from rela2x._core._relaxation_superoperator import RelaxationSuperoperator
+from rela2x._core._liouvillian import LiouvillianSuperoperator
 from rela2x._core._master_equations import (
     equations_of_motion,
     equations_of_motion_to_latex,
 )
-from rela2x._core._workflows import R_object_in_product_operator_basis
+from rela2x._core._workflows import (
+    relaxation_superoperator,
+    hamiltonian_superoperator,
+    liouvillian_superoperator,
+)
 
 # Explicit public interface, so that "from rela2x import *" exposes the Rela2x
 # names only, and not the third-party modules imported by the core.
 __all__ = [
     "set_relaxation_theory",
+    "set_verbose",
     "hbar",
     "k_B",
     "mu_0",
     "y_0",
     "w_0",
     "B",
-    "T",
+    "temperature",
     "beta",
     "t",
     "tau",
@@ -155,64 +127,35 @@ __all__ = [
     "spin_quantum_numbers",
     "Kronecker_product",
     "commutator",
-    "Lv_bracket",
-    "Lv_norm",
-    "Lv_amplitude",
+    "Liouville_bracket",
+    "Liouville_norm",
+    "Liouville_amplitude",
     "op_change_of_basis",
     "op_decomposition",
-    "string_to_number",
-    "sort_interactions",
-    "pick_from_list",
-    "pick_from_matrix",
-    "cut_list",
-    "cut_matrix",
-    "list_indexes",
-    "all_combinations",
     "op_S_symbol",
     "product_op_S_symbol",
     "op_T_symbol",
     "product_op_T_symbol",
     "expectation_value",
     "f_expectation_value_t",
+    "J_coupling_symbol",
+    "w_symbol",
     "op_Sx",
     "op_Sy",
     "op_Sz",
     "op_Sp",
     "op_Sm",
     "op_Svec",
-    "vector_to_spherical_tensor",
     "op_T",
-    "op_T_coupled_lq",
-    "many_spin_operator",
     "SpinOperators",
     "vectorize",
     "vectorize_all",
-    "sop_rmul",
-    "sop_lmul",
+    "sop_right_mul",
+    "sop_left_mul",
     "sop_commutator",
     "sop_double_commutator",
     "sop_D",
-    "T_index_spin_order",
-    "T_index_coherence_order",
-    "T_index_type",
-    "T_index_spin_projection",
-    "T_index_from_string",
-    "S_index_from_string",
-    "basis_index_list_index",
-    "coherence_order_filter",
-    "spin_order_filter",
-    "type_filter",
-    "Cartesian_product_basis",
-    "Cartesian_product_basis_symbols",
     "Cartesian_product_basis_and_symbols",
-    "T_product_basis",
-    "T_product_basis_symbols",
-    "Cartesian_product_basis_indices",
-    "T_product_basis_indices",
-    "T_index_coherence_sort_key",
-    "T_index_projection_sort_key",
-    "T_basis_sort_keys",
-    "sort_T_product_basis",
     "T_product_basis_and_symbols",
     "Operator",
     "Superoperator",
@@ -223,15 +166,17 @@ __all__ = [
     "Schofield_theta",
     "J_w",
     "J_w_isotropic_rotational_diffusion",
-    "extract_J_w_symbols_and_args",
-    "sop_R_term",
-    "sop_R_term_alpha_alpha",
-    "sop_R_term_alpha_beta",
-    "sop_R_term_beta_alpha",
-    "sop_R_term_beta_beta",
     "sop_R",
     "RelaxationSuperoperator",
+    "op_H_Z",
+    "op_H_J",
+    "op_H",
+    "sop_H",
+    "HamiltonianSuperoperator",
+    "LiouvillianSuperoperator",
     "equations_of_motion",
     "equations_of_motion_to_latex",
-    "R_object_in_product_operator_basis",
+    "relaxation_superoperator",
+    "hamiltonian_superoperator",
+    "liouvillian_superoperator",
 ]

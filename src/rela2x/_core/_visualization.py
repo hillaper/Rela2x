@@ -146,7 +146,7 @@ def _plot_nonzero_pattern(
 
 
 def visualize_operator(
-    operator: smp.MatrixBase,
+    op: smp.MatrixBase,
     rows_start: int=0,
     rows_end: int | None=None,
     basis_symbols: list[smp.Expr] | None=None,
@@ -160,7 +160,7 @@ def visualize_operator(
 
     Parameters
     ----------
-    operator : sympy.Matrix
+    op : sympy.Matrix
         Operator to be visualized.
     rows_start : int, optional
         Starting row/column index for the visualization. Default is 0.
@@ -173,15 +173,15 @@ def visualize_operator(
     """
 
     # Restrict the operator to the section to be drawn and mark its nonzero elements.
-    operator = operator[rows_start:rows_end, rows_start:rows_end]
-    operator_nonzeros = np.array(matrix_nonzeros(operator), dtype=np.float32)
+    op = op[rows_start:rows_end, rows_start:rows_end]
+    operator_nonzeros = np.array(matrix_nonzeros(op), dtype=np.float32)
 
     _plot_nonzero_pattern(operator_nonzeros, rows_start=rows_start, rows_end=rows_end,
                           basis_symbols=basis_symbols, fontsize=fontsize)
 
 
 def visualize_many_operators(
-    operators: list[smp.MatrixBase],
+    ops: list[smp.MatrixBase],
     rows_start: int=0,
     rows_end: int | None=None,
     basis_symbols: list[smp.Expr] | None=None,
@@ -197,7 +197,7 @@ def visualize_many_operators(
 
     Parameters
     ----------
-    operators : list of sympy.Matrix
+    ops : list of sympy.Matrix
         Operators to be visualized.
     rows_start : int, optional
         Starting row/column index for the visualization. Default is 0.
@@ -210,9 +210,9 @@ def visualize_many_operators(
     """
 
     # Restrict each operator to the section to be drawn and sum their nonzero patterns.
-    operators = [operator[rows_start:rows_end, rows_start:rows_end] for operator in operators]
-    operators_nonzeros = [np.array(matrix_nonzeros(operator), dtype=np.float32)
-                          for operator in operators]
+    ops = [op[rows_start:rows_end, rows_start:rows_end] for op in ops]
+    operators_nonzeros = [np.array(matrix_nonzeros(op), dtype=np.float32)
+                          for op in ops]
     operator_nonzeros = np.sum(operators_nonzeros, axis=0)
 
     _plot_nonzero_pattern(operator_nonzeros, rows_start=rows_start, rows_end=rows_end,

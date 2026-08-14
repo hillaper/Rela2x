@@ -2,7 +2,8 @@
 Master equations of motion.
 
 The equations of motion for the expectation values of the basis operators are
-assembled here, in the form dictated by the relaxation theory in use.
+assembled here, in the form dictated by the relaxation theory in use and by the
+sign convention of the superoperator generating the motion.
 """
 
 # NOTE: Postponed evaluation of annotations, so that the modern union syntax can be
@@ -14,13 +15,13 @@ import sympy as smp
 
 from rela2x._core import _settings
 from rela2x._core._constants import t
+from rela2x._core._superoperators import Superoperator
 from rela2x._core._symbols import f_expectation_value_t
 from rela2x._core._utils import pick_from_list, pick_from_matrix
 
 
 def equations_of_motion(
-    R: smp.MatrixBase,
-    basis_op_symbols: list[smp.Expr],
+    superoperator: Superoperator,
     expectation_values: bool=True,
     included_operators: list[int] | None=None,
 ) -> smp.Eq:
@@ -28,12 +29,26 @@ def equations_of_motion(
     Build the system of differential equations resulting from the master
     equation of the relaxation theory set in `_settings.RELAXATION_THEORY`.
 
+    NOTE: The superoperator object is taken as such, rather than its matrix
+    representation, because the sign convention of the equations of motion
+    differs between the superoperators: the relaxation superoperator is
+    positive-definite and enters with a minus sign, whereas the Liouvillian is
+    already the generator of the motion. Each object reports its own convention
+    through its `generator` property, so that relaxation superoperators,
+    Hamiltonian superoperators and Liouvillians are all handled here without
+    further branching.
+
+    NOTE: For the semiclassical relaxation theory the equations are written for
+    the deviations from thermal equilibrium. Under the high-field secular
+    approximation the coherent part commutes with the equilibrium state, so
+    that separation is exact; it holds only approximately if the non-secular
+    terms are retained (see `LiouvillianSuperoperator`).
+
     Parameters
     ----------
-    R : sympy.Matrix
-        Relaxation superoperator matrix representation.
-    basis_op_symbols : list of sympy.Symbol
-        Basis operator symbols.
+    superoperator : Superoperator
+        Superoperator generating the motion, e.g. a `RelaxationSuperoperator`
+        or a `LiouvillianSuperoperator`.
     expectation_values : bool, optional
         Whether to display the equations in terms of expectation values. Default is True.
     included_operators : list of int, optional
@@ -45,30 +60,34 @@ def equations_of_motion(
     sympy.Eq
         System of differential equations for the observables.
     """
+    # Take the generator and the basis operator symbols from the superoperator.
+    generator = superoperator.generator
+    basis_symbols = superoperator.basis_symbols
+
     # Include only a subset of operators if desired.
     if included_operators is not None:
-        R = pick_from_matrix(R, included_operators)
-        basis_op_symbols = pick_from_list(basis_op_symbols, included_operators)
+        generator = pick_from_matrix(generator, included_operators)
+        basis_symbols = pick_from_list(basis_symbols, included_operators)
 
     # Compute the left-hand side of the differential equations, optionally as expectation values.
     if expectation_values:
-        lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
+        lhs = smp.Matrix(basis_symbols).applyfunc(lambda x: smp.Derivative(f_expectation_value_t(x), t))
     else:
-        lhs = smp.Matrix(basis_op_symbols).applyfunc(lambda x: smp.Derivative(x, t))
+        lhs = smp.Matrix(basis_symbols).applyfunc(lambda x: smp.Derivative(x, t))
 
     # Build the right-hand side according to the relaxation theory: deviations
     # from thermal equilibrium for the semiclassical theory, or the
     # operators themselves for the quantum mechanical (Lindbladian) theory.
     if _settings.RELAXATION_THEORY == 'sc':
-        rhs = smp.Matrix([smp.Symbol(f'\\Delta {symbol}'.replace('*', '')) for symbol in basis_op_symbols])
+        rhs = smp.Matrix([smp.Symbol(f'\\Delta {symbol}'.replace('*', '')) for symbol in basis_symbols])
     elif _settings.RELAXATION_THEORY == 'qm':
-        rhs = smp.Matrix([symbol for symbol in basis_op_symbols])
+        rhs = smp.Matrix([symbol for symbol in basis_symbols])
 
     # Compute the right-hand side of the differential equations.
     if expectation_values:
         rhs = rhs.applyfunc(lambda x: f_expectation_value_t(x))
 
-    rhs = -R * rhs
+    rhs = generator * rhs
     return smp.Eq(lhs, rhs, evaluate=False)
 
 
