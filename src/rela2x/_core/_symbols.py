@@ -214,3 +214,64 @@ def J_coupling_symbol(
         J-coupling constant symbol, as an ordinary frequency (in Hz).
     """
     return smp.Symbol(f'J_{{{spin_index_1}{spin_index_2}}}', real=True)
+
+
+def D_coupling_symbol(
+    spin_index_1: int,
+    spin_index_2: int,
+) -> smp.Symbol:
+    """
+    Build the symbolic residual dipolar coupling constant between two spins.
+
+    NOTE: The spin indices are 1-based, exactly as for `J_coupling_symbol`,
+    whose labelling convention and nine-spin ambiguity this function shares.
+
+    NOTE: The symbol carries the motionally averaged dipolar coupling that
+    survives incomplete averaging, not the rigid-limit dipolar coupling
+    constant. The fluctuation about that average is what drives the dipolar
+    contribution to the relaxation superoperator, and is described there by the
+    spectral density functions instead.
+
+    Parameters
+    ----------
+    spin_index_1 : int
+        Index of the first spin.
+    spin_index_2 : int
+        Index of the second spin.
+
+    Returns
+    -------
+    sympy.Symbol
+        Residual dipolar coupling constant symbol, as an ordinary frequency
+        (in Hz), defined so that it is the splitting it produces in the
+        spectrum of a heteronuclear pair.
+    """
+    return smp.Symbol(f'D_{{{spin_index_1}{spin_index_2}}}', real=True)
+
+
+def w_Q_symbol(spin_index: int) -> smp.Symbol:
+    """
+    Build the symbolic residual quadrupolar coupling constant of a spin.
+
+    NOTE: The symbol is keyed by the spin index rather than by the isotope
+    label, unlike the Larmor frequency symbol of `w_symbol`, because the
+    residual quadrupolar coupling is a property of the local environment of an
+    individual nucleus rather than of its isotope.
+
+    NOTE: As for the residual dipolar coupling, the symbol carries the
+    motionally averaged quadrupolar coupling rather than the rigid-limit one
+    (see `D_coupling_symbol`).
+
+    Parameters
+    ----------
+    spin_index : int
+        Index of the spin.
+
+    Returns
+    -------
+    sympy.Symbol
+        Residual quadrupolar coupling constant symbol, as an angular frequency,
+        defined so that it is the spacing it produces between adjacent
+        single-quantum transitions of the spin.
+    """
+    return smp.Symbol(f'\\omega_{{Q}}^{{({spin_index})}}', real=True)

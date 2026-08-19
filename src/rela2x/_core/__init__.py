@@ -45,7 +45,9 @@ from ._symbols import (
     expectation_value,
     f_expectation_value_t,
     J_coupling_symbol,
+    D_coupling_symbol,
     w_symbol,
+    w_Q_symbol,
 )
 from ._operators import (
     op_Sx,
@@ -87,6 +89,8 @@ from ._relaxation import sop_R, RelaxationSuperoperator
 from ._hamiltonian import (
     op_H_Z,
     op_H_J,
+    op_H_RDC,
+    op_H_RQC,
     op_H,
     sop_H,
     HamiltonianSuperoperator,
@@ -133,7 +137,9 @@ __all__ = [
     "expectation_value",
     "f_expectation_value_t",
     "J_coupling_symbol",
+    "D_coupling_symbol",
     "w_symbol",
+    "w_Q_symbol",
     "op_Sx",
     "op_Sy",
     "op_Sz",
@@ -164,6 +170,8 @@ __all__ = [
     "RelaxationSuperoperator",
     "op_H_Z",
     "op_H_J",
+    "op_H_RDC",
+    "op_H_RQC",
     "op_H",
     "sop_H",
     "HamiltonianSuperoperator",

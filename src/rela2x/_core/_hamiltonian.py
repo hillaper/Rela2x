@@ -19,6 +19,15 @@ relaxation superoperator, and against the same Larmor frequency symbols, so
 that the coherent and incoherent parts of the dynamics rest on the same
 assumption. The `keep_non_secular` argument switches it off, exactly as it does
 for the relaxation superoperator.
+
+NOTE: That secular approximation is made against the Zeeman Hamiltonian alone,
+for the coherent and the incoherent part alike. The residual dipolar and
+quadrupolar couplings are part of the static Hamiltonian, but they do not enter
+the test, which strictly should be made in the eigenbasis of the complete
+static Hamiltonian. The treatment is therefore valid while the residual
+couplings are small compared with the Larmor frequency differences that the
+test is made on, which is the usual situation at high field, but it is an
+assumption rather than an identity.
 """
 
 # NOTE: Postponed evaluation of annotations, so that the modern union syntax can be
@@ -32,7 +41,7 @@ import time
 from rela2x._core._operators import SpinOperators
 from rela2x._core._status import status
 from rela2x._core._superoperators import Superoperator, sop_commutator
-from rela2x._core._symbols import J_coupling_symbol, w_symbol
+from rela2x._core._symbols import D_coupling_symbol, J_coupling_symbol, w_Q_symbol, w_symbol
 
 
 def op_H_Z(
@@ -145,6 +154,163 @@ def op_H_J(
     return H_J
 
 
+def op_H_RDC(
+    spin_operators: SpinOperators,
+    coupling_strengths_matrix: list[list[int]],
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
+    """
+    Build the residual dipolar coupling Hamiltonian.
+
+    NOTE: The residual dipolar coupling is the part of the dipole-dipole
+    interaction that survives incomplete motional averaging, as in partially
+    oriented or otherwise anisotropic environments. It is a coherent
+    interaction, carried by the average of the interaction, whereas the
+    fluctuation about that average drives the dipole-dipole contribution to the
+    relaxation superoperator. The two are therefore complementary halves of the
+    same interaction, and both may be present at once.
+
+    NOTE: The interaction is the rank-2, projection-0 spherical tensor built
+    from the two spin vectors, proportional to ``3 S_z^i S_z^j - S^i . S^j``,
+    which is the same spherical tensor structure the dipole-dipole mechanism of
+    the relaxation superoperator is built from. Only the projection-0 component
+    survives the high-field secular approximation, so a single symbol per spin
+    pair suffices however anisotropic the underlying tensor is in the molecular
+    frame. The projection-1 and projection-2 components oscillate at the Larmor
+    frequency and twice it, and are not restored by `keep_non_secular`.
+
+    NOTE: The secular approximation of the projection-0 component is applied
+    exactly as it is for the J-coupling, and against the same Larmor frequency
+    symbols (see `op_H_J`). Written in the form used below, the residual
+    dipolar coupling is the J-coupling with the weight of the flip-flop part
+    changed from 1 to -1/2. A heteronuclear pair therefore reduces to the same
+    longitudinal form as a J-coupled one, and its splitting is the sum of the
+    two couplings, whereas a homonuclear pair keeps the two distinct.
+
+    NOTE: The residual dipolar coupling constants are ordinary frequencies (in
+    Hz) and are converted to angular frequency by the explicit factor of 2*pi,
+    as the J-coupling constants are.
+
+    Parameters
+    ----------
+    spin_operators : SpinOperators
+        Spin system for which to build the residual dipolar coupling Hamiltonian.
+    coupling_strengths_matrix : list of list of int
+        Coupling matrix whose values 1 define which spins are coupled. Only
+        the upper triangle is read, so each pair contributes exactly once.
+    keep_non_secular : bool, optional
+        Whether to keep the non-secular flip-flop terms of heteronuclear
+        pairs, giving the full rank-2 form for every coupled pair.
+        Default is False.
+
+    Returns
+    -------
+    sympy.Matrix
+        Residual dipolar coupling Hamiltonian,
+        ``sum_{i<j} 2*pi*D_ij S_z^i S_z^j`` for heteronuclear pairs and
+        ``sum_{i<j} pi*D_ij (3 S_z^i S_z^j - S^i . S^j)`` for homonuclear ones.
+    """
+    # Initialize the residual dipolar coupling Hamiltonian.
+    H_RDC = smp.zeros(spin_operators.N_states, spin_operators.N_states, complex=True)
+
+    # Accumulate the bilinear terms over the coupled spin pairs.
+    # NOTE: Only the upper triangle is read, exactly as for the J-coupling.
+    for spin_1_index in range(spin_operators.N_spins):
+        for spin_2_index in range(spin_1_index + 1, spin_operators.N_spins):
+            if coupling_strengths_matrix[spin_1_index][spin_2_index]:
+                D = D_coupling_symbol(spin_1_index + 1, spin_2_index + 1)
+
+                # The longitudinal term commutes with the Zeeman Hamiltonian and is always secular.
+                rank_2_form = spin_operators.Sz[spin_1_index] @ spin_operators.Sz[spin_2_index]
+
+                # Frequency at which the flip-flop term oscillates in the interaction frame.
+                delta_sec = w_symbol(spin_operators.spin_system[spin_1_index])\
+                            - w_symbol(spin_operators.spin_system[spin_2_index])
+
+                # Add the flip-flop term for degenerate spins, or if non-secular terms are kept.
+                # NOTE: Its weight of -1/2 relative to the longitudinal term is what distinguishes
+                # the rank-2 residual dipolar coupling from the isotropic J-coupling.
+                if delta_sec == 0 or keep_non_secular:
+                    rank_2_form -= smp.Rational(1, 2)\
+                                   * (spin_operators.Sx[spin_1_index] @ spin_operators.Sx[spin_2_index]
+                                      + spin_operators.Sy[spin_1_index] @ spin_operators.Sy[spin_2_index])
+
+                H_RDC += 2*smp.pi * D * rank_2_form
+
+    return H_RDC
+
+
+def op_H_RQC(
+    spin_operators: SpinOperators,
+    coupling_strengths: list[int],
+) -> smp.MatrixBase:
+    """
+    Build the residual quadrupolar coupling Hamiltonian.
+
+    NOTE: The residual quadrupolar coupling is the coherent counterpart of the
+    quadrupolar relaxation mechanism, in the same way that the residual dipolar
+    coupling is the coherent counterpart of the dipole-dipole mechanism (see
+    `op_H_RDC`).
+
+    NOTE: The interaction is the rank-2, projection-0 single-spin spherical
+    tensor, proportional to ``3 S_z^2 - S(S+1)``, which is the same spherical
+    tensor the quadrupolar mechanism of the relaxation superoperator is built
+    from. Only that component survives the high-field secular approximation, so
+    the Hamiltonian built here is secular as it stands and takes no
+    `keep_non_secular` argument.
+
+    NOTE: The residual quadrupolar coupling constants are angular frequencies,
+    unlike the J-coupling and residual dipolar coupling constants, and follow
+    the usual convention in which the constant is the spacing it produces
+    between adjacent single-quantum transitions of the spin. The central
+    transition of a half-integer spin is left unshifted, as it must be to first
+    order in the quadrupolar coupling.
+
+    Parameters
+    ----------
+    spin_operators : SpinOperators
+        Spin system for which to build the residual quadrupolar coupling Hamiltonian.
+    coupling_strengths : list of int
+        Values 1 or 0 defining which spins are included in the interaction.
+
+    Returns
+    -------
+    sympy.Matrix
+        Residual quadrupolar coupling Hamiltonian,
+        ``sum_i (w_Q^(i)/6) (3 (S_z^(i))^2 - S_i(S_i + 1))`` over the included spins.
+
+    Raises
+    ------
+    ValueError
+        If a spin-1/2 nucleus is included in the interaction, as it carries no
+        quadrupole moment.
+    """
+    # Initialize the residual quadrupolar coupling Hamiltonian.
+    H_RQC = smp.zeros(spin_operators.N_states, spin_operators.N_states, complex=True)
+
+    # Accumulate the single-spin quadratic terms over the included spins.
+    for spin_index, coupling_strength in enumerate(coupling_strengths):
+        if coupling_strength:
+
+            # The rank-2 spherical tensor of a spin-1/2 nucleus vanishes identically,
+            # so requesting the interaction for one is a mistake rather than a null contribution.
+            if spin_operators.S[spin_index] < 1:
+                raise ValueError(f"Spin {spin_index + 1} of the spin system "
+                                 f"('{spin_operators.spin_system[spin_index]}') has spin quantum number "
+                                 "1/2 and therefore carries no quadrupole moment. Remove it from the "
+                                 "residual quadrupolar coupling interaction.")
+
+            w_Q = w_Q_symbol(spin_index + 1)
+
+            # Spin quantum number as an exact rational, so that S(S+1) stays symbolic.
+            S = smp.nsimplify(spin_operators.S[spin_index])
+
+            H_RQC += w_Q/6 * (3*spin_operators.Sz[spin_index] @ spin_operators.Sz[spin_index]
+                              - S*(S + 1) * smp.eye(spin_operators.N_states))
+
+    return H_RQC
+
+
 def op_H(
     spin_operators: SpinOperators,
     coherent_interactions: dict,
@@ -170,7 +336,9 @@ def op_H(
     Raises
     ------
     ValueError
-        If `coherent_interactions` contains a mechanism other than ``'Z'`` or ``'J'``.
+        If `coherent_interactions` contains a mechanism other than ``'Z'``,
+        ``'J'``, ``'RDC'`` or ``'RQC'``, or if the residual quadrupolar
+        coupling is requested for a spin-1/2 nucleus (see `op_H_RQC`).
     """
     # Initialize the coherent Hamiltonian.
     H_final = smp.zeros(spin_operators.N_states, spin_operators.N_states, complex=True)
@@ -185,10 +353,18 @@ def op_H(
             H_final += op_H_J(spin_operators, coupling_strengths,
                               keep_non_secular=keep_non_secular)
 
+        elif mechanism == 'RDC':
+            H_final += op_H_RDC(spin_operators, coupling_strengths,
+                                keep_non_secular=keep_non_secular)
+
+        elif mechanism == 'RQC':
+            H_final += op_H_RQC(spin_operators, coupling_strengths)
+
         else:
             raise ValueError(f"Invalid coherent interaction '{mechanism}'. Choose 'Z' for the Zeeman "
-                             "interaction (including the chemical shift) or 'J' for the J-coupling "
-                             "interaction.")
+                             "interaction (including the chemical shift), 'J' for the J-coupling "
+                             "interaction, 'RDC' for the residual dipolar coupling or 'RQC' for the "
+                             "residual quadrupolar coupling.")
 
     return H_final
 
