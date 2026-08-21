@@ -36,6 +36,9 @@ The irreducible spherical tensor components printed at the end of the publicatio
 **API reference:**
 The [API reference](#api-reference) below lists everything that `from rela2x import *` exposes. For the full detail of any individual function or class, refer to its docstring in the source modules under `src/rela2x/_core/`. (A thorough dedicated documentation page is planned for the future.)
 
+**Math rendering in GitHub:**
+Note that GitHub does not render LaTeX math in Markdown properly. To see the equations typeset, view the README file in a Jupyter Notebook, or other Markdown viewer that supports math rendering.
+
 ## Releases
 
 **Rela²x 0.0.1:**  
