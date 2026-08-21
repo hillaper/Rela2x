@@ -128,6 +128,12 @@ class LiouvillianSuperoperator(Superoperator):
     def to_observables(self) -> None:
         """
         Fix the basis operator normalization in both parts of the Liouvillian.
+
+        NOTE: Not idempotent. If `H` and `R` were built through the
+        `hamiltonian_superoperator`/`relaxation_superoperator`/`liouvillian_superoperator`
+        entry points, they are already normalized to observables, and calling
+        this method again rescales both parts a second time, silently
+        producing incorrect equations of motion.
         """
         self.H.to_observables()
         self.R.to_observables()

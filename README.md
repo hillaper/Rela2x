@@ -5,13 +5,11 @@
 
 ## Description
 
-Rela²x is a freely available Python package for **analytic** and **automatic** (hence the a squared) 
-high-field liquid-state NMR theory. It builds the Liouville-space matrix representations of the superoperators that govern the dynamics of a spin system symbolically, and hands them back as *SymPy* expressions that you can read, manipulate, approximate and publish.
+Rela²x is a freely available Python package for **analytic** and **automatic** (hence the *a* squared) high-field liquid-state NMR theory. It builds the Liouville-space matrix representations of the superoperators that govern the dynamics of a spin system symbolically, and hands them back as *SymPy* expressions that you can read, manipulate, approximate and publish.
 
-Rela²x was originally built for one thing, and it remains the package's distinctive contribution: 
-Symbolic Redfield relaxation theory derived automatically for arbitrary small spin systems with any spin quantum numbers and any relaxation mechanisms, including every possible cross-term between the interactions that drive relaxation. This incoherent part of the dynamics, the relaxation superoperator ***R***, is what the accompanying publication describes.
+Rela²x was originally built for one thing, and it remains the package's distinctive contribution: Symbolic Redfield relaxation theory derived automatically for arbitrary small spin systems with any spin quantum numbers and any relaxation mechanisms, including every possible cross-correlated term between the interactions that drive relaxation. This incoherent part of the dynamics, the relaxation superoperator ***R***, is what the accompanying publication describes.
 
-Since version 0.0.3, Rela²x also includes the coherent part — the Hamiltonian superoperator ***H***, covering the Zeeman interaction (including the chemical shift), the J-coupling, and the residual dipolar and quadrupolar couplings — and combines the two into the Liouvillian ***L*** = −i[*H*, ·] − *R*, the generator of the full equation of motion. Each is available from a single function call:
+Nowadays, Rela²x also includes the coherent part — the Hamiltonian superoperator ***H***, covering the Zeeman interaction (including the chemical shift), the J-coupling, and the residual dipolar and quadrupolar couplings — and combines the two into the Liouvillian ***L*** = −i[*H*, ·] − *R*, the generator of the full equation of motion. Each is available from a single function call:
 
 | | superoperator | describes | entry point |
 | --- | --- | --- | --- |
@@ -19,16 +17,15 @@ Since version 0.0.3, Rela²x also includes the coherent part — the Hamiltonian
 | ***R*** | relaxation | the incoherent dynamics | `relaxation_superoperator` |
 | ***L*** | Liouvillian, *L* = −i[*H*, ·] − *R* | the full dynamics | `liouvillian_superoperator` |
 
-Around these come the tools to work with them: spherical tensor and Cartesian product operator bases with sorting and filtering, approximations and simplifications (isotropic rotational diffusion, neglect of cross-correlation and cross-relaxation), matrix-element lookup, visualization, and automatic construction of the equations of motion, exportable as LaTeX for publications, etc. 
+Around these come the tools to work with them: spherical tensor and Cartesian product operator bases with sorting and filtering, approximations and simplifications, matrix-element lookup, visualization, and automatic construction of the equations of motion, exportable as LaTeX for publications, etc. 
 
-Everything rests on one physical assumption, the high-field limit, and it is applied consistently to the coherent and incoherent parts alike (see [The high-field approximation](#the-high-field-approximation)).
-The zero-field regime is not yet supported, but is planned for the future.
+Everything rests on one physical assumption, the **high-field limit**, and it is applied consistently to the coherent and incoherent parts alike (see [The high-field approximation](#the-high-field-approximation)). The zero- to low-field regime is not yet supported, but is planned for the future.
 
 Rela²x is designed to be user-friendly, requiring only a basic knowledge of Python. Additional experience with the *SymPy* library can be helpful because it is the main library used by Rela²x.
 
 ## Notes
 
-Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. There, the Greek letter Gamma is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code. 
+Before using Rela²x, it is recommended that you read the related publication https://doi.org/10.1016/j.jmr.2024.107828. There, the Greek letter $\Gamma$ is used for the relaxation superoperator; however, in Python, this is inconvenient, so *R* is used here and in the code. 
 
 **Important:**
 This documentation contains the most up-to-date information regarding the code itself, and it differs in many respects from the publication. The underlying relaxation theory is the same, but the code has been updated and improved since the publication.
@@ -36,6 +33,7 @@ This documentation contains the most up-to-date information regarding the code i
 **Erratum:**
 The irreducible spherical tensor components printed at the end of the publication have errors. However, the implementation in Rela²x is and has always been correct.
 
+**API reference:**
 The [API reference](#api-reference) below lists everything that `from rela2x import *` exposes. For the full detail of any individual function or class, refer to its docstring in the source modules under `src/rela2x/_core/`. (A thorough dedicated documentation page is planned for the future.)
 
 ## Releases
@@ -43,66 +41,24 @@ The [API reference](#api-reference) below lists everything that `from rela2x imp
 **Rela²x 0.0.1:**  
 Initial release of the Rela2x program described in:
 
-P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025;  
-[https://doi.org/10.1016/j.jmr.2024.107828](https://doi.org/10.1016/j.jmr.2024.107828)
+P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025; [https://doi.org/10.1016/j.jmr.2024.107828](https://doi.org/10.1016/j.jmr.2024.107828)
 
 **Rela²x 0.0.2:**  
-New features, bug fixes, type hints, naming consistency, documentation and cosmetic improvements, and Cartesian product operator basis support.
+New features, bug fixes, type hints, naming consistency, documentation, cosmetic improvements, and Cartesian product operator basis support.
 
 The most significant fixes concern the sorting of the product operator basis. The order in which the basis operators appear therefore differs from version 0.0.1, and from the figures in the publication; the matrix elements themselves are unaffected.
 
-<!-- Some names changed in this version:
-
-| 0.0.1 | 0.0.2 |
-| --- | --- |
-| `R_object_in_T_basis` | `R_object_in_product_operator_basis` |
-| `KroneckerProduct` | `Kronecker_product` |
-| `T_symbol_spin_order`, `T_symbol_coherence_order`, `T_symbol_type`, `T_symbol_Nth_spin_projection` | `T_index_spin_order`, `T_index_coherence_order`, `T_index_type`, `T_index_spin_projection` |
-| `T_symbol_list_index` | `basis_index_list_index` |
-| `full_sort_T_product_basis`, and the individual sorting passes | `sort_T_product_basis`, together with `T_basis_sort_keys` |
-| `T_basis_split_to_coherence_orders` | removed; use `R.filter('c', ...)` | -->
-
-The full changelog is in the [0.0.2 release notes](https://github.com/hillaper/Rela2x/releases/tag/0.0.2). 
-
 **Rela²x 0.0.3:**  
-Coherent interactions. The Zeeman interaction (including the chemical shift) and the J-coupling interaction can now be computed as the Hamiltonian superoperator *H* (`hamiltonian_superoperator`), and combined with the relaxation superoperator into the Liouvillian *L* = −i[*H*, ·] − *R* (`liouvillian_superoperator`). The package was also reorganised from the single `rela2x.py` file into logical modules under `src/rela2x/_core/`. Several minor updates were also added here and there.
-
-The basis attributes, the normalization to observables, the matrix element lookup and the filtering tools now live on the shared `Superoperator` class, so they are available on *R*, *H* and *L* alike.
+Coherent interactions. The Zeeman interaction (including the chemical shift) and the J-coupling interaction can now be computed as the Hamiltonian superoperator *H* (`hamiltonian_superoperator`), and combined with the relaxation superoperator into the Liouvillian *L* = −i[*H*, ·] − *R* (`liouvillian_superoperator`). The package was also reorganised from the single `rela2x.py` file into logical modules under `src/rela2x/_core/`. Several minor updates were also added along the way.
 
 The high-field secular approximation is now applied to the coherent interactions as well as to *R*, and against the same Larmor frequency symbols, so the two parts of the Liouvillian rest on the same assumption. In practice this means a J-coupling is treated as weak between spins with different isotope labels and strong between spins sharing one. `keep_non_secular` switches the approximation off in both parts at once. See [The high-field approximation](#the-high-field-approximation).
 
-<!-- The progress output printed while building *R*, *H* or *L* is now coherent across the package: every stage reports through the same mechanism, `liouvillian_superoperator` labels its two parts with clear section headers instead of printing the same "changing basis"/"final clean-ups" structure twice with nothing to tell them apart, and completion messages report elapsed time. `set_verbose(False)` silences it entirely. -->
-
-<!-- Some names changed in this version:
-
-| 0.0.2 | 0.0.3 |
-| --- | --- |
-| `R_object_in_product_operator_basis` | `relaxation_superoperator` |
-| `equations_of_motion(R.op, R.basis_symbols, ...)` | `equations_of_motion(R, ...)` |
-| `basis_index_list_index` | `basis_index_position` |
-| `list_indexes` | `list_indices` |
-| `T` (temperature) | `temperature` |
-| `spinsystem` (argument and `SpinOperators` attribute) | `spin_system` |
-| `INCOHERENT_INTERACTIONS` (argument) | `incoherent_interactions` |
-| `SpinOperators.gen_*` | `SpinOperators._gen_*` |
-| `coherence_order_filter`, `spin_order_filter`, `type_filter` | now also take and return `basis_norms` |
-| `Lv_bracket`, `Lv_norm`, `Lv_amplitude` | `Liouville_bracket`, `Liouville_norm`, `Liouville_amplitude` |
-| `sop_lmul`, `sop_rmul` | `sop_left_mul`, `sop_right_mul` | -->
-
-<!-- The `equations_of_motion` row is a change of signature rather than a rename. It now takes the superoperator object itself, because the sign convention of the equations of motion differs between the superoperators: *R* is positive-definite and enters with a minus sign, whereas *L* is already the generator of the motion. Each object reports its own convention through its `generator` property, so relaxation superoperators and Liouvillians share a single implementation. Passing `R.op` would otherwise have produced a sign-flipped result without any error. -->
-
-<!-- A few parameter names changed as well, in functions that are always called positionally in practice: the operator argument of the basis filters and of `visualize_operator` is now `op`, and that of `visualize_many_operators` is `ops`. -->
-
-<!-- The remaining renames unify the naming across the package: `indices` rather than `indexes` throughout, `spin_system` matching the `spin_operators` argument it accompanies, ordinary lower-case argument names, and a leading underscore on the `SpinOperators` methods that are called only during construction. `T` was renamed because it collided with the spherical tensor operators that the rest of the package uses `T` for; the printed symbol is still `T`. -->
-
-<!-- Two bugs were fixed in the process. `filter` previously left `basis_norms` untouched, so a subsequent `to_observables` silently rescaled with the norms of operators that had already been removed. And the two-spin coupling matrices were read in full rather than upper-triangle-only, so a coupling matrix supplied in symmetric form silently counted every pair twice. -->
-
 **Rela²x 0.0.4:**  
-Residual dipolar and quadrupolar couplings, added as the coherent mechanisms `'RDC'` and `'RQC'`. These are the parts of the dipole-dipole and quadrupolar interactions that survive incomplete motional averaging, and they are the coherent counterparts of the `'DD'` and `'Q'` relaxation mechanisms: the average of an anisotropic interaction belongs in *H*, the fluctuation about it in *R*. Both are built from the rank-2, projection-0 spherical tensors that the corresponding relaxation mechanisms already use, so only that one component survives the high-field secular approximation and a single symbol per coupling suffices.
+Residual dipolar and quadrupolar couplings, added as the coherent mechanisms `'RDC'` and `'RQC'`. These are the parts of the dipole-dipole and quadrupolar interactions that survive incomplete motional averaging, and they are the coherent counterparts of the `'DD'` and `'Q'` relaxation mechanisms: the average of an anisotropic interaction belongs in *H*, the fluctuation about it in *R*. 
 
 The residual dipolar coupling shares the secular treatment of the J-coupling, on the same Larmor frequency symbols, and its constants $D_{ij}$ are defined as the splittings they produce for a heteronuclear pair — so such a pair carrying both couplings splits by $J_{ij} + D_{ij}$. The residual quadrupolar coupling constants $\omega_Q^{(i)}$ are angular frequencies, defined as the spacing between adjacent single-quantum transitions of the spin.
 
-See [The high-field approximation](#the-high-field-approximation) for the assumption these rest on: the secular approximation is still made against the Zeeman Hamiltonian alone, so the residual couplings are assumed small compared with the Larmor frequency differences it tests.
+See [The high-field approximation](#the-high-field-approximation) for the assumption these rest on: **the secular approximation is still made against the Zeeman Hamiltonian alone**, so the residual couplings are assumed small compared with the Larmor frequency differences it tests.
 
 ## Installation from PyPI
 The most recent release published on the Python Package Index (PyPI) can be installed with:
@@ -157,8 +113,7 @@ The following Python packages are required:
 - matplotlib
 - sympy
 
-These dependencies are listed in `pyproject.toml`. Rela²x is designed to be an interactive program, so a Jupyter Notebook installation is also recommended. 
-<!-- The *Anaconda* distribution includes all the necessary packages and is recommended for ease of setup. -->
+These dependencies are listed in `pyproject.toml`. Rela²x is designed to be an interactive program, so a Jupyter Notebook installation is strongly recommended.
 
 ## Usage
 
@@ -180,14 +135,15 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    spin_system = ['14N', '1H', '1H']
    ```
    
-   A collection of NMR isotopes and their spin quantum numbers is held in the `ISOTOPES` dictionary, which is brought into your namespace by the import above. <!-- The values are sourced from [this NMR table](https://www.kherb.io/docs/nmr_table.html).  -->
-   Each entry maps an isotope label to a `[spin quantum number, gyromagnetic ratio in MHz/T]` pair. If your preferred nucleus is not listed, feel free to add it. Adding a suffixed copy of an existing isotope is also how chemically inequivalent nuclei of the same isotope are given distinct chemical shifts:
+   A collection of NMR isotopes and their spin quantum numbers is held in the `ISOTOPES` dictionary, which is brought into your namespace by the import above. Each entry maps an isotope label to a `[spin quantum number, gyromagnetic ratio in MHz/T]` pair. If your preferred nucleus is not listed, feel free to add it. 
+   
+   Adding a suffixed copy of an existing isotope is also how chemically inequivalent nuclei of the same isotope are given distinct Zeeman frequencies (i.e., chemical shifts).
 
    ```python
    ISOTOPES['1H_X'] = ISOTOPES['1H']
    ```
 
-   The distinct label is what produces a distinct Larmor frequency symbol $\omega_{\mathrm{1H}}$, and that symbol is shared by *H* and *R* alike (see `w_symbol`). This is how the chemical shift enters: there is no separate shielding or chemical-shift symbol.
+   The distinct label is what produces a distinct Zeeman frequency symbol $\omega_{\mathrm{1H}}$, and that symbol is shared by *H* and *R* alike (see `w_symbol`). This is how the chemical shift enters: there is no separate shielding or chemical-shift symbol.
    
 **Choose general settings (optional):**
 
@@ -207,7 +163,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    
 **Define the coherent interactions:**
 
-   Coherent interactions are defined via a Python dictionary, in a 0/1-flag style:
+   Coherent interactions are defined via a Python dictionary, in a 0/1-flag style. For the example ¹⁴N–¹H–¹H spin system, we could have
 
    ```python
    coh_intrs = {
@@ -224,12 +180,12 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `'Z'` is the Zeeman interaction, including the chemical shift. Its value is a list of `1`s and `0`s defining which spins carry the interaction. The Hamiltonian is $\hat H_Z = \sum_i \omega_i \hat S_z^{(i)}$, in the laboratory frame and in angular frequency units.
 
-   - `'J'` is the J-coupling interaction. Its value is a coupling matrix whose `1`s define which spins are coupled; only the upper triangle is read. The coupling constants $J_{ij}$ are ordinary frequencies (in Hz), converted internally by the factor of $2\pi$.
+   - `'J'` is the J-coupling interaction. Its value is a coupling matrix whose `1`s define which spins are coupled; **only the upper triangle is read.** The coupling constants $J_{ij}$ are ordinary frequencies (in Hz), converted internally by the factor of $2\pi$.
 
-     The high-field secular approximation is applied here (see [The high-field approximation](#the-high-field-approximation) for the same treatment applied to *R*, below). The longitudinal term $\hat S_z^{(i)}\hat S_z^{(j)}$ commutes with the Zeeman Hamiltonian and is always retained, whereas the flip-flop term $\hat S_x^{(i)}\hat S_x^{(j)} + \hat S_y^{(i)}\hat S_y^{(j)}$ oscillates at the difference of the two Larmor frequencies and is retained only when that difference vanishes. So
+     The high-field secular approximation is applied here (see [The high-field approximation](#the-high-field-approximation) for the same treatment applied to *R*, below). The longitudinal term $\hat S_z^{(i)}\hat S_z^{(j)}$ commutes with the Zeeman Hamiltonian and is always retained, whereas the flip-flop term $\hat S_x^{(i)}\hat S_x^{(j)} + \hat S_y^{(i)}\hat S_y^{(j)}$ oscillates at the difference of the two Larmor frequencies and is retained only when that difference (approximately) vanishes. So
 
-     $$ \hat H_J = \sum_{i<j} 2\pi J_{ij}\, \hat S_z^{(i)}\hat S_z^{(j)} \quad\text{(heteronuclear, weak coupling)}, $$
-     $$ \hat H_J = \sum_{i<j} 2\pi J_{ij}\, \hat{\mathbf S}^{(i)} \cdot \hat{\mathbf S}^{(j)} \quad\text{(homonuclear, strong coupling)}. $$
+     $$\hat H_J = \sum_{i<j} 2\pi J_{ij}\, \hat S_z^{(i)}\hat S_z^{(j)} \quad\text{(heteronuclear, weak coupling)},$$
+     $$\hat H_J = \sum_{i<j} 2\pi J_{ij}\, \hat{\mathbf S}^{(i)} \cdot \hat{\mathbf S}^{(j)} \quad\text{(homonuclear, strong coupling)}.$$
 
      The test is made on the same Larmor frequency symbols that the secular approximation of *R* uses below, so spins sharing an isotope label are degenerate and spins carrying distinct labels are not. `keep_non_secular=True` restores the full dot product for every pair.
 
@@ -237,21 +193,33 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
      The interaction is the rank-2, projection-0 spherical tensor of the two spin vectors, $\hat T_{20} \propto 3\hat S_z^{(i)}\hat S_z^{(j)} - \hat{\mathbf S}^{(i)} \cdot \hat{\mathbf S}^{(j)}$, so its secular approximation works exactly as the J-coupling one does, on the same Larmor frequency symbols:
 
-     $$ \hat H_{\mathrm{RDC}} = \sum_{i<j} 2\pi D_{ij}\, \hat S_z^{(i)}\hat S_z^{(j)} \quad\text{(heteronuclear)}, $$
-     $$ \hat H_{\mathrm{RDC}} = \sum_{i<j} \pi D_{ij} \left( 3\hat S_z^{(i)}\hat S_z^{(j)} - \hat{\mathbf S}^{(i)} \cdot \hat{\mathbf S}^{(j)} \right) \quad\text{(homonuclear)}. $$
+     $$\hat H_{\mathrm{RDC}} = \sum_{i<j} 2\pi D_{ij}\, \hat S_z^{(i)}\hat S_z^{(j)} \quad\text{(heteronuclear)},$$
+     $$\hat H_{\mathrm{RDC}} = \sum_{i<j} \pi D_{ij} \left( 3\hat S_z^{(i)}\hat S_z^{(j)} - \hat{\mathbf S}^{(i)} \cdot \hat{\mathbf S}^{(j)} \right) \quad\text{(homonuclear)}.$$
 
      Written this way, the residual dipolar coupling is the J-coupling with the weight of the flip-flop term changed from $1$ to $-1/2$, and $D_{ij}$ is by construction the splitting it produces in the spectrum of a heteronuclear pair. A heteronuclear pair carrying both couplings therefore splits by $J_{ij} + D_{ij}$, the familiar result, whereas a homonuclear pair keeps the two distinct.
 
-   - `'RQC'` is the residual quadrupolar coupling, the single-spin counterpart of the above. Its value is a list of `1`s and `0`s, exactly as for `'Z'`. The interaction is the rank-2, projection-0 spherical tensor of a single spin, $\hat T_{20} \propto 3(\hat S_z)^2 - S(S+1)$:
+     Explicitly, $D_{ij}$ is the ensemble-averaged dipolar coupling
 
-     $$ \hat H_{\mathrm{RQC}} = \sum_i \frac{\omega_Q^{(i)}}{6} \left( 3\left(\hat S_z^{(i)}\right)^2 - S_i(S_i+1) \right). $$
+     $$D_{ij} = -\frac{\mu_0 \gamma_i \gamma_j \hbar}{4\pi^2 r_{ij}^3} \left\langle \frac{3\cos^2\theta_{ij} - 1}{2} \right\rangle = -\frac{\mu_0 \gamma_i \gamma_j h}{8\pi^3 r_{ij}^3} \left\langle \frac{3\cos^2\theta_{ij} - 1}{2} \right\rangle,$$
+
+     where $r_{ij}$ is the internuclear distance, $\theta_{ij}$ the angle between the internuclear vector and the magnetic field, and $\langle\cdot\rangle$ the ensemble average. This is the standard convention of the residual dipolar coupling: $D_{ij}$ is exactly the quantity obtained by subtracting the isotropic splitting $J_{ij}$ from the splitting measured in an aligned sample. It vanishes under isotropic motion, which is why the dipole-dipole interaction contributes only to *R* in ordinary liquid-state NMR.
+
+   - `'RQC'` is the residual quadrupolar coupling, the single-spin counterpart of the above for spin $I>1/2$ nuclei. Its value is a list of `1`s and `0`s, exactly as for `'Z'`. The interaction is the rank-2, projection-0 spherical tensor of a single spin, $\hat T_{20} \propto 3(\hat S_z)^2 - S(S+1)$:
+
+     $$\hat H_{\mathrm{RQC}} = \sum_i \frac{\omega_Q^{(i)}}{6} \left( 3\left(\hat S_z^{(i)}\right)^2 - S_i(S_i+1) \right).$$
 
      Only the projection-0 component survives the secular approximation, so this Hamiltonian is secular as it stands and `keep_non_secular` does not affect it. Unlike $J_{ij}$ and $D_{ij}$, the constants $\omega_Q^{(i)}$ are **angular** frequencies, following the usual convention in which the constant is the spacing it produces between adjacent single-quantum transitions of the spin; the central transition of a half-integer spin is left unshifted, as it must be to first order. A spin-1/2 nucleus carries no quadrupole moment, so including one raises a `ValueError` rather than contributing nothing.
 
+     Explicitly, $\omega_Q^{(i)}$ is the motionally averaged quadrupolar coupling
+
+     $$\omega_Q^{(i)} = \frac{3\, e^2 q_i Q_i}{2 S_i (2 S_i - 1)\, \hbar} \left\langle \frac{3\cos^2\theta_i - 1}{2} + \frac{\eta_i}{2}\sin^2\theta_i \cos 2\phi_i \right\rangle,$$
+
+     where $C_Q^{(i)} = e^2 q_i Q_i / h$ is the quadrupolar coupling constant, $\eta_i$ the asymmetry of the electric field gradient tensor, and $\theta_i$, $\phi_i$ the polar angles of the magnetic field in the principal axis frame of that tensor. For an axially symmetric electric field gradient on a spin-1 nucleus this reduces to the familiar deuterium result, a splitting of $\tfrac{3}{2} C_Q \langle P_2(\cos\theta) \rangle$. Like the residual dipolar coupling, it vanishes under isotropic motion.
+
      Note that the residual quadrupolar coupling constants are keyed by the spin *index* rather than by the isotope label, unlike the Larmor frequencies, because they are properties of the local environment of an individual nucleus.
 
-   Both residual couplings are built from the same spherical tensors as the dipole-dipole and quadrupolar mechanisms of *R* below, and are their coherent counterparts: the average of an anisotropic interaction is coherent and belongs in *H*, while the fluctuation about that average drives relaxation and belongs in *R*. The two are complementary halves of one interaction, and are meant to be used together — a system with a residual dipolar coupling will normally also carry a `'DD'` mechanism in its incoherent interactions.
-
+   The two definitions above are given so that it is unambiguous what number to substitute for each symbol; Rela²x itself never evaluates them, and treats $D_{ij}$ and $\omega_Q^{(i)}$ as the free symbolic parameters you manipulate, exactly as it does $J_{ij}$.
+   
    A missing key means the mechanism is absent, so `{}` gives a vanishing Hamiltonian and `{'J': ...}` alone gives J-coupling without Zeeman terms.
 
 **Compute the matrix representation of *H*, convert it to the product operator basis, and create a `HamiltonianSuperoperator` object:**
@@ -264,8 +232,6 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    Three options are available for `sorting` (currently only supported for the spherical tensor basis): `'v1'`, `'v2'`, or `None` (for details, see the documentation in `_core/_basis.py`). `keep_non_secular` allows keeping non-secular terms, exactly as above.
 
-   <!-- For the Zeeman interaction alone, *H* is diagonal in the spherical tensor basis, with each element given by $\sum_i q_i \omega_i$ over the spins carrying a non-identity operator: each basis operator simply precesses at its own coherence frequency. The J-coupling then adds off-diagonal elements, which connect in-phase and antiphase coherences — the product-operator picture of J evolution. -->
-
    The function returns a `HamiltonianSuperoperator` object.
 
    *Attributes.* These come from the shared `Superoperator` base class, so they are present on *R* and *L* in exactly the same way:
@@ -277,10 +243,6 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    - `basis_norms` — the Liouville norms of the (unnormalized) basis operators.
    - `basis_indices` — the basis operator indices. Each entry is a tuple describing one basis operator, holding one item per spin that carries something other than the identity operator. For the spherical tensor basis the items are `(spin index, l, q)` triples, and for the Cartesian basis they are `(spin index, direction)` pairs. Spin indices start from 1, matching the operator symbols. The identity operator of the whole system is the empty tuple. For instance, in a two-spin system, $\hat T_{10}^{(1)} \hat T_{1-1}^{(2)}$ has the index `((1, 1, 0), (2, 1, -1))`.
    - `generator` — the matrix that actually drives the equations of motion. Each superoperator carries its own sign convention here: for *H* it is $-i[\hat H, \cdot]$, for *R* it is $-R$, and for *L* it is *L* itself. This is what `equations_of_motion` reads.
-
-   <!-- Note that `H.op` holds the commutation superoperator [*H*, ·] itself, without the factor of −i of the Liouville-von Neumann equation, so that its matrix elements are frequencies; that factor is applied when *H* is combined with *R* into the Liouvillian, below.  -->
-
-   <!-- The `T_index_*` functions use these to determine the spin order, coherence order, type and individual spin projections of a basis operator, and the sorting and filtering tools are built on them. -->
 
    *Shared methods.* Also provided by `Superoperator`, and likewise available on *R* and *L*:
 
@@ -353,7 +315,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `neglect_cross_relaxation()` neglects all cross-relaxation in *R*, setting every off-diagonal element to zero and leaving only the auto-relaxation rates on the diagonal. Note the distinction from the previous method: cross-*correlation* is between two interaction mechanisms, whereas cross-*relaxation* is between two basis operators.
 
-**Combine *H* and *R* into the Liouvillian *L*, the generator of the full equation of motion:**
+**Combine *H* and *R* into the Liouvillian *L*, the generator of the full equation of motion** (note that *H* and *R* need not be computed first; `liouvillian_superoperator` can build both parts from the dictionaries directly):
 
    ```python
    L = liouvillian_superoperator(spin_system, coh_intrs, incoh_intrs, basis='T', sorting='v1', keep_non_secular=False)
@@ -394,17 +356,9 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
 ## The high-field approximation
 
-The derivation of *R* (see the publication) rests on <!-- the secular approximation with respect to the Zeeman Hamiltonian, and the coherent part is built under exactly the same assumption, using the same Larmor frequency symbols. The two parts of the Liouvillian are therefore consistent with one another by construction, and `keep_non_secular=True` switches the approximation off in both at once. -->
-the high-field approximation, so that the Zeeman Hamiltonian is assumed as the dominant coherent interaction. 
+The derivation of *R* (see the publication) rests on the high-field approximation, so that the Zeeman Hamiltonian is assumed as the dominant coherent interaction.
 
-<!-- Two consequences are worth knowing. -->
-A consequence of this related to the secular approximation worth knowing:
-
-**Everything is decided by Larmor frequency differences.** A term survives the secular approximation if the frequency at which it oscillates in the interaction frame vanishes. For the J-coupling this means that the flip-flop term is kept between spins sharing an isotope label and dropped otherwise, and for *R* it means that the secular test never sees the J-coupling at all. That is the correct leading-order treatment at high field, where $J \ll \omega$: the J-coupling is too small to change which terms are secular. It also means Rela²x will not describe a regime where that ordering fails.
-
-**The secular approximation is made against the Zeeman Hamiltonian alone.** This holds for the coherent and the incoherent part alike, and it extends to the residual dipolar and quadrupolar couplings: they are part of the static Hamiltonian, but they do not enter the test that decides which terms survive it, in exactly the way the J-coupling does not. Strictly, that test should be made in the eigenbasis of the complete static Hamiltonian rather than of the Zeeman term alone. The treatment is therefore the correct leading-order one while the residual couplings are small compared with the Larmor frequency differences the test is made on — the usual situation at high field — but it is an assumption rather than an identity, and a strong residual coupling is a regime Rela²x does not currently describe.
-
-<!-- **The deviation from equilibrium is exact.** Because the secular coherent part commutes with the Zeeman Hamiltonian, it also commutes with the high-temperature equilibrium state, $[\hat H, \hat \rho_{\mathrm{eq}}] = 0$. Writing the semiclassical equations of motion for the deviations from thermal equilibrium is therefore exact within the high-field limit, with no leftover $-i[\hat H, \hat\rho_{\mathrm{eq}}]$ term. Retaining the non-secular terms breaks this, to the order of $J/\omega$. -->
+**The secular approximation this yields is made against the Zeeman Hamiltonian alone, not the complete static Hamiltonian.** A term survives it if the frequency at which it oscillates in the interaction frame of $\hat H_Z$ vanishes, and this single test governs the coherent and incoherent parts alike. Every other coherent interaction Rela²x builds is consequently a spectator to it: for the J-coupling this means the flip-flop term is kept between spins sharing an isotope label and dropped otherwise, and *R*'s own secular test never sees the J-coupling at all; the residual dipolar and quadrupolar couplings, though themselves part of the static Hamiltonian, likewise never feed back into deciding what survives. Strictly, the test should be made in the eigenbasis of the complete static Hamiltonian rather than of the Zeeman term alone; the present treatment is the correct leading-order one as long as these other couplings stay small compared with the Larmor frequency differences the test is made on — the usual high-field situation, where e.g. $J \ll \omega$ — but it is an assumption rather than an identity, and Rela²x does not currently describe a regime where that ordering breaks down. (Perhaps an update for the future.)
 
 ## API reference
 
@@ -557,6 +511,8 @@ I'm also happy to help with any issues you may encounter while using Rela²x.
 
 ## Citations
 
-If you use Rela²x in your work, please include the following citation:
+If you use Rela²x in your work, please include the following citations:
 
 P. Hilla, J. Vaara, Rela²x: Analytic and automatic NMR relaxation theory, *J. Magn. Reson.*, 2025; https://doi.org/10.1016/j.jmr.2024.107828
+
+P. Hilla, J. Eronen, Rela²x [software], Zenodo, 2026; https://doi.org/10.5281/zenodo.21934667

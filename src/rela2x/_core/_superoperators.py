@@ -404,6 +404,10 @@ class Superoperator(Operator):
         therefore linear in `self.op`. Applying it separately to the coherent
         and incoherent parts of a Liouvillian and combining them afterwards is
         thus equivalent to applying it to their combination.
+
+        NOTE: Not idempotent. Calling this method twice on the same object
+        rescales `self.op` a second time, silently producing incorrect
+        matrix elements and equations of motion.
         """
         op = self.op
         norms = self.basis_norms
