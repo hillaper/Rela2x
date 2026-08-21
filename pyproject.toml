@@ -1,6 +1,6 @@
 [project]
 name = "rela2x"
-version = "0.0.3"
+version = "0.0.4"
 authors = [
   { name="Perttu Hilla", email="perttu.hilla@oulu.fi" },
 ]

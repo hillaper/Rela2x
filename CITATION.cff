@@ -15,7 +15,7 @@ authors:
     given-names: Joni
     orcid: "https://orcid.org/0009-0000-2538-9006"
     affiliation: "University of Oulu"
-version: 0.0.3
+version: 0.0.4
 date-released: "2026-08-14"
 license: MIT
 repository-code: "https://github.com/hillaper/Rela2x"
