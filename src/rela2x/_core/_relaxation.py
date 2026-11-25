@@ -332,7 +332,8 @@ def sop_R_term_beta_beta(
 
         if keep_non_secular and _settings.RELAXATION_THEORY == 'sc':
 
-            argument = q1_t1*w1_t1 + q2_t1*w1_t2
+            # Spectral density function with argument defined by the second interaction
+            argument = q1_t2*w2_t1 + q2_t2*w2_t2
             J = J_w(beta1, beta2, l, argument)
 
             return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_t1, 1, q2_t1, l, (q1_t1+q2_t1)).doit()\
@@ -342,7 +343,8 @@ def sop_R_term_beta_beta(
             return smp.zeros(op_T_left.shape[0]**2, op_T_right.shape[0]**2)
     
     else:
-        argument = q1_t1*w1_t1 + q2_t1*w1_t2
+        # Spectral density function with argument defined by the second interaction
+        argument = q1_t2*w2_t1 + q2_t2*w2_t2
         J = J_w(beta1, beta2, l, argument)
 
         return sop_R_term(op_T_left, J, op_T_right) * CG(1, q1_t1, 1, q2_t1, l, (q1_t1+q2_t1)).doit()\
