@@ -9,6 +9,9 @@ couples that matrix representation to the basis it is expressed in, and
 provides the coherent counterpart of the analysis tools of
 `RelaxationSuperoperator`.
 
+`sop_H_in_basis` builds the same superoperator directly in a product operator
+basis, which is the route taken by the entry points of `_workflows.py`.
+
 NOTE: The Hamiltonian is expressed in the laboratory frame and in angular
 frequency units, so that its Zeeman part is written directly in terms of the
 Larmor frequency symbols that the relaxation superoperator uses for its secular
@@ -35,13 +38,64 @@ assumption rather than an identity.
 # in pyproject.toml.
 from __future__ import annotations
 
+from collections import defaultdict
 import sympy as smp
 import time
 
 from rela2x._core._operators import SpinOperators
+from rela2x._core._product_basis import ProductBasis, sparse_add
 from rela2x._core._status import status
 from rela2x._core._superoperators import Superoperator, sop_commutator
 from rela2x._core._symbols import D_coupling_symbol, J_coupling_symbol, w_Q_symbol, w_symbol
+
+
+def _require_quadrupole_moment(
+    spin_operators: SpinOperators,
+    spin_index: int,
+) -> None:
+    """
+    Reject a residual quadrupolar coupling of a nucleus without a quadrupole moment.
+
+    NOTE: The rank-2 spherical tensor of a spin-1/2 nucleus vanishes identically,
+    so requesting the interaction for one is a mistake rather than a null contribution.
+
+    Parameters
+    ----------
+    spin_operators : SpinOperators
+        Spin system.
+    spin_index : int
+        Index of the spin, counted from zero.
+
+    Raises
+    ------
+    ValueError
+        If the spin quantum number of the spin is smaller than one.
+    """
+    if spin_operators.S[spin_index] < 1:
+        raise ValueError(f"Spin {spin_index + 1} of the spin system "
+                         f"('{spin_operators.spin_system[spin_index]}') has spin quantum number "
+                         "1/2 and therefore carries no quadrupole moment. Remove it from the "
+                         "residual quadrupolar coupling interaction.")
+
+
+def _invalid_mechanism_message(mechanism: str) -> str:
+    """
+    Error message for an unknown coherent interaction.
+
+    Parameters
+    ----------
+    mechanism : str
+        Name of the requested interaction.
+
+    Returns
+    -------
+    str
+        Error message.
+    """
+    return (f"Invalid coherent interaction '{mechanism}'. Choose 'Z' for the Zeeman "
+            "interaction (including the chemical shift), 'J' for the J-coupling "
+            "interaction, 'RDC' for the residual dipolar coupling or 'RQC' for the "
+            "residual quadrupolar coupling.")
 
 
 def op_H_Z(
@@ -292,13 +346,7 @@ def op_H_RQC(
     for spin_index, coupling_strength in enumerate(coupling_strengths):
         if coupling_strength:
 
-            # The rank-2 spherical tensor of a spin-1/2 nucleus vanishes identically,
-            # so requesting the interaction for one is a mistake rather than a null contribution.
-            if spin_operators.S[spin_index] < 1:
-                raise ValueError(f"Spin {spin_index + 1} of the spin system "
-                                 f"('{spin_operators.spin_system[spin_index]}') has spin quantum number "
-                                 "1/2 and therefore carries no quadrupole moment. Remove it from the "
-                                 "residual quadrupolar coupling interaction.")
+            _require_quadrupole_moment(spin_operators, spin_index)
 
             w_Q = w_Q_symbol(spin_index + 1)
 
@@ -361,10 +409,7 @@ def op_H(
             H_final += op_H_RQC(spin_operators, coupling_strengths)
 
         else:
-            raise ValueError(f"Invalid coherent interaction '{mechanism}'. Choose 'Z' for the Zeeman "
-                             "interaction (including the chemical shift), 'J' for the J-coupling "
-                             "interaction, 'RDC' for the residual dipolar coupling or 'RQC' for the "
-                             "residual quadrupolar coupling.")
+            raise ValueError(_invalid_mechanism_message(mechanism))
 
     return H_final
 
@@ -409,6 +454,142 @@ def sop_H(
     status(f'H computed in {time.time() - time_start:.2f} seconds.\n')
 
     return H_final
+
+
+def _coherent_terms(
+    spin_operators: SpinOperators,
+    coherent_interactions: dict,
+    keep_non_secular: bool=False,
+) -> list[tuple]:
+    """
+    Expand the coherent Hamiltonian into products of spherical tensor operators.
+
+    NOTE: The counterpart of `op_H`, making the same secular approximation. The
+    expansion uses S_z = T_10, T_11 = -S_+/sqrt(2) and T_1-1 = S_-/sqrt(2), so
+    that S_x^i S_x^j + S_y^i S_y^j = -(T_11^i T_1-1^j + T_1-1^i T_11^j) and
+    3 S_z^2 - S(S+1) = sqrt(6) T_20.
+
+    Parameters
+    ----------
+    spin_operators : SpinOperators
+        Spin system for which to expand the Hamiltonian.
+    coherent_interactions : dict
+        Dictionary of coherent interactions (see README.md for the required format).
+    keep_non_secular : bool, optional
+        Whether to keep the non-secular terms of the coherent interactions. Default is False.
+
+    Returns
+    -------
+    list of tuple
+        Terms (coefficient, operator), with `operator` in the format of `ProductBasis`.
+
+    Raises
+    ------
+    ValueError
+        If `coherent_interactions` contains an unknown mechanism, or if the
+        residual quadrupolar coupling is requested for a spin-1/2 nucleus.
+    """
+    terms = []
+    for mechanism, coupling_strengths in coherent_interactions.items():
+
+        # Zeeman interaction
+        if mechanism == 'Z':
+            for spin, strength in enumerate(coupling_strengths):
+                if strength:
+                    w = w_symbol(spin_operators.spin_system[spin])
+                    terms.append((w, ((spin, 1, 0, False),)))
+
+        # J-coupling and residual dipolar coupling, which differ in the weight of the flip-flop part
+        elif mechanism in ('J', 'RDC'):
+            for i in range(spin_operators.N_spins):
+                for j in range(i + 1, spin_operators.N_spins):
+                    if not coupling_strengths[i][j]:
+                        continue
+                    if mechanism == 'J':
+                        constant = 2*smp.pi * J_coupling_symbol(i + 1, j + 1)
+                        flip_flop_weight = smp.S.One
+                    else:
+                        constant = 2*smp.pi * D_coupling_symbol(i + 1, j + 1)
+                        flip_flop_weight = -smp.Rational(1, 2)
+
+                    # Longitudinal term
+                    terms.append((constant, ((i, 1, 0, False), (j, 1, 0, False))))
+
+                    # Flip-flop term of degenerate spins, or if non-secular terms are kept
+                    delta_sec = (w_symbol(spin_operators.spin_system[i])
+                                 - w_symbol(spin_operators.spin_system[j]))
+                    if delta_sec == 0 or keep_non_secular:
+                        for q in (1, -1):
+                            terms.append((-flip_flop_weight * constant, ((i, 1, q, False), (j, 1, -q, False))))
+
+        # Residual quadrupolar coupling
+        elif mechanism == 'RQC':
+            for spin, strength in enumerate(coupling_strengths):
+                if strength:
+                    _require_quadrupole_moment(spin_operators, spin)
+                    terms.append((w_Q_symbol(spin + 1) / smp.sqrt(6), ((spin, 2, 0, False),)))
+
+        else:
+            raise ValueError(_invalid_mechanism_message(mechanism))
+
+    return terms
+
+
+def sop_H_in_basis(
+    spin_operators: SpinOperators,
+    coherent_interactions: dict,
+    basis: str,
+    basis_indices: list[tuple],
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
+    """
+    Compute the Hamiltonian commutation superoperator directly in a product
+    operator basis.
+
+    NOTE: Gives the matrix of `sop_H` after the change to the product operator
+    basis and the normalisation to observables, but much faster.
+
+    Parameters
+    ----------
+    spin_operators : SpinOperators
+        Spin system for which to compute the Hamiltonian superoperator.
+    coherent_interactions : dict
+        Dictionary of coherent interactions (see README.md for the required format).
+    basis : {'T', 'C'}
+        Product operator basis.
+    basis_indices : list of tuple
+        Basis operator indices, in the order of the basis.
+    keep_non_secular : bool, optional
+        Whether to keep the non-secular terms of the coherent interactions. Default is False.
+
+    Returns
+    -------
+    H : sympy.Matrix
+        Commutation superoperator [H, .] in the product operator basis.
+    """
+    # Record the start time for status reporting.
+    time_start = time.time()
+    status('Computing H for the coherent interactions...')
+
+    product_basis = ProductBasis(spin_operators.S, basis, basis_indices)
+
+    # Accumulate the commutation superoperator [X, .] = L(X) - R(X) of every term
+    elements = defaultdict(lambda: smp.S.Zero)
+    for coefficient, operator in _coherent_terms(spin_operators, coherent_interactions, keep_non_secular):
+        commutator = sparse_add(product_basis.multiplication(operator, 'left'),
+                                product_basis.multiplication(operator, 'right'), -1)
+        for column, values in commutator.items():
+            for row, value in values.items():
+                elements[row, column] += coefficient * value
+
+    # Assemble the matrix
+    H = smp.zeros(product_basis.dim, product_basis.dim)
+    for (row, column), value in elements.items():
+        H[row, column] = smp.expand(value)
+
+    status(f'H computed in {time.time() - time_start:.2f} seconds.\n')
+
+    return H
 
 
 class HamiltonianSuperoperator(Superoperator):
