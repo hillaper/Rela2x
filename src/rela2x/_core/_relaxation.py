@@ -18,6 +18,10 @@ See https://doi.org/10.1016/j.jmr.2024.107828
 # in pyproject.toml.
 from __future__ import annotations
 
+from collections import defaultdict
+from functools import lru_cache
+from itertools import product
+from sympy.core.function import AppliedUndef
 from sympy.physics.quantum.cg import CG
 import numpy as np
 import sympy as smp
@@ -25,6 +29,7 @@ import time
 
 from rela2x._core import _settings
 from rela2x._core._operators import SpinOperators, op_T_coupled_lq, vector_to_spherical_tensor
+from rela2x._core._product_basis import ProductBasis, sparse_add, sparse_matmul
 from rela2x._core._spectral_density import (
     G0_from_amplitudes,
     G0_from_tensors,
@@ -627,6 +632,247 @@ def sop_R(
             
     status(f'R computed in {time.time() - time_start:.2f} seconds.\n')
     return R_final
+
+
+@lru_cache(maxsize=None)
+def _clebsch_gordan(
+    q1: int,
+    q2: int,
+    l: int,
+) -> smp.Expr:
+    """
+    Clebsch-Gordan coefficient <1 q1 1 q2 | l q1+q2>.
+
+    Parameters
+    ----------
+    q1 : int
+        Projection of the first rank-1 component.
+    q2 : int
+        Projection of the second rank-1 component.
+    l : int
+        Coupled rank.
+
+    Returns
+    -------
+    sympy.Expr
+        Value of the coefficient.
+    """
+    return CG(1, q1, 1, q2, l, q1 + q2).doit()
+
+
+@lru_cache(maxsize=4096)
+def _simplify_cached(expression: smp.Expr) -> smp.Expr:
+    """
+    `sympy.simplify` with the results stored, for expressions that recur in many
+    matrix elements.
+
+    Parameters
+    ----------
+    expression : sympy.Expr
+        Expression to simplify.
+
+    Returns
+    -------
+    sympy.Expr
+        Simplified expression.
+    """
+    return smp.simplify(expression)
+
+
+def _interaction_components(
+    spin_system: list[str],
+    incoherent_interactions: dict,
+) -> list[dict]:
+    """
+    Expand every interaction into the product operators of its spherical tensor
+    components.
+
+    Parameters
+    ----------
+    spin_system : list of str
+        Nuclear isotopes of the spin system.
+    incoherent_interactions : dict
+        Dictionary of incoherent interactions (see README.md for the required format).
+
+    Returns
+    -------
+    list of dict
+        One entry per interaction, with its `name` and its
+        `components`, ``{(l, q): [(coefficient, operator, frequency), ...]}``,
+        where `operator` is in the format of `ProductBasis`.
+
+    Raises
+    ------
+    ValueError
+        If the type of an interaction is not of the format described in README.md.
+    """
+    interactions = []
+    for mechanism, (kind, coupling_strengths, ranks) in incoherent_interactions.items():
+
+        # Spins taking part in each interaction of the mechanism
+        if kind in ('1L', '1Q'):
+            targets = [(i,) for i, strength in enumerate(coupling_strengths) if strength != 0]
+        elif kind[0] == '2':
+            targets = [pair for pair, strength in upper_triangle_enumerate(coupling_strengths) if strength != 0]
+        else:
+            raise ValueError('Invalid interaction dictionary. See README.md for details.')
+
+        for spins in targets:
+            w = [w_symbol(spin_system[spin]) for spin in spins]
+            components = defaultdict(list)
+            for l in set(ranks):
+
+                # Single-spin quadratic interaction: the spherical tensor operator itself
+                if kind == '1Q':
+                    for q in range(-l, l+1):
+                        components[l, q].append((smp.S.One, ((spins[0], l, q, False),), q*w[0]))
+
+                # Single-spin linear interaction: coupled with the field along the z axis
+                elif kind == '1L':
+                    for q in range(-l, l+1):
+                        if abs(q) <= 1 and _clebsch_gordan(q, 0, l) != 0:
+                            components[l, q].append((_clebsch_gordan(q, 0, l), ((spins[0], 1, q, False),), q*w[0]))
+
+                # Two-spin interaction: every pair of rank-1 components coupled to (l, q1+q2)
+                else:
+                    for q1, q2 in product(range(-1, 2), repeat=2):
+                        if abs(q1 + q2) <= l and _clebsch_gordan(q1, q2, l) != 0:
+                            operator = ((spins[0], 1, q1, False), (spins[1], 1, q2, False))
+                            components[l, q1 + q2].append((_clebsch_gordan(q1, q2, l), operator, q1*w[0] + q2*w[1]))
+
+            name = mechanism + ''.join(str(spin + 1) for spin in spins)
+            interactions.append({'name': name, 'components': components})
+
+    return interactions
+
+
+def _sop_R_term_in_basis(
+    product_basis: ProductBasis,
+    left: tuple,
+    right: tuple,
+) -> dict:
+    """
+    Counterpart of `sop_R_term` for a pair of product operators X and Y,
+    without the spectral density: [X^dagger, [Y, .]] / 2 in the semiclassical
+    theory and -D(X^dagger, Y) in the Lindbladian one.
+
+    Parameters
+    ----------
+    product_basis : ProductBasis
+        Product operator basis.
+    left : tuple
+        Product operator X.
+    right : tuple
+        Product operator Y.
+
+    Returns
+    -------
+    dict
+        Columns of the term as ``{column: {row: value}}``.
+    """
+    # Conjugate the left operator, whose factors act on distinct spins and therefore commute
+    X_dagger = tuple((spin, l, q, not conjugate) for spin, l, q, conjugate in left)
+
+    L_X = product_basis.multiplication(X_dagger, 'left')
+    R_X = product_basis.multiplication(X_dagger, 'right')
+    L_Y = product_basis.multiplication(right, 'left')
+    R_Y = product_basis.multiplication(right, 'right')
+
+    if _settings.RELAXATION_THEORY == 'sc':
+        commutators = sparse_matmul(sparse_add(L_X, R_X, -1), sparse_add(L_Y, R_Y, -1))
+        return sparse_add({}, commutators, smp.Rational(1, 2))
+
+    elif _settings.RELAXATION_THEORY == 'qm':
+        anticommutator = sparse_add(sparse_matmul(L_Y, L_X), sparse_matmul(R_X, R_Y), 1)
+        return sparse_add(sparse_add({}, sparse_matmul(L_X, R_Y), -1), anticommutator, smp.Rational(1, 2))
+
+
+def sop_R_in_basis(
+    spin_operators: SpinOperators,
+    incoherent_interactions: dict,
+    basis: str,
+    basis_indices: list[tuple],
+    keep_non_secular: bool=False,
+) -> smp.MatrixBase:
+    """
+    Compute the relaxation superoperator directly in a product operator basis.
+
+    NOTE: Gives the matrix of `sop_R` after the change to the product operator
+    basis and the normalisation to observables, but much faster, because only
+    the nonzero single-spin matrix elements are combined.
+
+    Parameters
+    ----------
+    spin_operators : SpinOperators
+        Spin system for which to compute the relaxation superoperator.
+    incoherent_interactions : dict
+        Dictionary of incoherent interactions (see README.md for the required format).
+    basis : {'T', 'C'}
+        Product operator basis.
+    basis_indices : list of tuple
+        Basis operator indices, in the order of the basis.
+    keep_non_secular : bool, optional
+        Whether to keep non-secular terms in the relaxation superoperator.
+        NOTE: Only applicable for the semiclassical relaxation theory. Default is False.
+
+    Returns
+    -------
+    R : sympy.Matrix
+        Relaxation superoperator in the product operator basis.
+    """
+    # Record the start time for status reporting.
+    time_start = time.time()
+
+    product_basis = ProductBasis(spin_operators.S, basis, basis_indices)
+    interactions = _interaction_components(spin_operators.spin_system, incoherent_interactions)
+    keep = keep_non_secular and _settings.RELAXATION_THEORY == 'sc'
+
+    # Matrix elements collected as {(row, column): {spectral density: coefficient}}
+    elements = defaultdict(lambda: defaultdict(lambda: smp.S.Zero))
+    terms = {}
+
+    status('Computing R for incoherent interaction pairs...')
+
+    for interaction_a, interaction_b in product(interactions, repeat=2):
+        status(f"  {interaction_a['name']} * {interaction_b['name']}")
+
+        # Commom rank, Hubbard's approximation, and equal projection
+        for l, q in interaction_a['components'].keys() & interaction_b['components'].keys():
+            pairs = product(interaction_a['components'][l, q], interaction_b['components'][l, q])
+            for (coefficient_a, left, w_a), (coefficient_b, right, w_b) in pairs:
+
+                # Secular approximation
+                if w_a - w_b != 0 and not keep:
+                    continue
+
+                # Spectral density function with argument defined by the second interaction
+                J = J_w(interaction_a['name'], interaction_b['name'], l, w_b)
+
+                if (left, right) not in terms:
+                    terms[left, right] = _sop_R_term_in_basis(product_basis, left, right)
+                for column, values in terms[left, right].items():
+                    for row, value in values.items():
+                        elements[row, column][J] += coefficient_a * coefficient_b * value
+
+    # Assemble the matrix
+    R = smp.zeros(product_basis.dim, product_basis.dim)
+    for (row, column), densities in elements.items():
+        if _settings.RELAXATION_THEORY == 'sc':
+            R[row, column] = smp.expand(smp.Add(*[J * c for J, c in densities.items()]))
+
+        elif _settings.RELAXATION_THEORY == 'qm':
+            # NOTE: Each J carries the quantum correction factor of its argument. The factors multiplying the same
+            # spectral density function are collected and simplified together, which is much cheaper than
+            # simplifying whole matrix elements.
+            factors = defaultdict(lambda: smp.S.Zero)
+            for J, c in densities.items():
+                function, = J.atoms(AppliedUndef)
+                factors[function] += smp.expand(c) * (J / function)
+            R[row, column] = smp.Add(*[smp.expand(function * _simplify_cached(factor))
+                                       for function, factor in factors.items()])
+
+    status(f'R computed in {time.time() - time_start:.2f} seconds.\n')
+    return R
 
 
 class RelaxationSuperoperator(Superoperator):

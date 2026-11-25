@@ -19,7 +19,7 @@ from rela2x._core._basis import Cartesian_product_basis_and_symbols, T_product_b
 from rela2x._core._hamiltonian import HamiltonianSuperoperator, sop_H
 from rela2x._core._liouvillian import LiouvillianSuperoperator
 from rela2x._core._operators import SpinOperators
-from rela2x._core._relaxation import RelaxationSuperoperator, sop_R
+from rela2x._core._relaxation import RelaxationSuperoperator, sop_R_in_basis
 from rela2x._core._status import status, status_section
 from rela2x._core._superoperators import Superoperator
 
@@ -82,8 +82,8 @@ def _to_product_operator_basis(
     Convert a superoperator to a product operator basis and fix its basis
     operator normalization, in place.
 
-    NOTE: Internal helper of the entry points below, holding the clean-up
-    chain they share: change of basis, normalization to observables, and
+    NOTE: Internal helper of the entry points below, used for the Hamiltonian
+    superoperator: change of basis, normalization to observables, and
     expansion of the matrix elements.
 
     Parameters
@@ -111,7 +111,7 @@ def _to_product_operator_basis(
 def _relaxation_superoperator_in_basis(
     spin_operators: SpinOperators,
     incoherent_interactions: dict,
-    basis_ops: list[smp.MatrixBase],
+    basis: str,
     basis_symbols: list[smp.Expr],
     basis_norms: list[smp.Expr],
     basis_indices: list[tuple],
@@ -130,7 +130,7 @@ def _relaxation_superoperator_in_basis(
         Spin system for which to compute the relaxation superoperator.
     incoherent_interactions : dict
         Dictionary of incoherent interactions (see README.md for the required format).
-    basis_ops : list of sympy.Matrix
+    basis : {'T', 'C'}
         Product operator basis.
     basis_symbols : list of sympy.Symbol
         Basis operator symbols.
@@ -160,14 +160,11 @@ def _relaxation_superoperator_in_basis(
     status_section('Relaxation superoperator (R)')
 
     # Compute the matrix representation of the relaxation superoperator.
-    R = sop_R(spin_operators, incoherent_interactions, keep_non_secular=keep_non_secular)
-
-    # Create the relaxation superoperator and convert it to the product basis.
+    R = sop_R_in_basis(spin_operators, incoherent_interactions, basis, basis_indices,
+                       keep_non_secular=keep_non_secular)
     R = RelaxationSuperoperator(R, basis_symbols, basis_norms, basis_indices,
                                 spin_system=spin_operators.spin_system,
                                 incoherent_interactions=incoherent_interactions)
-    _to_product_operator_basis(R, basis_ops)
-
     return R
 
 
@@ -266,7 +263,7 @@ def relaxation_superoperator(
     # Build the requested product operator basis.
     basis_ops, symbols, norms, indices = _product_operator_basis(Sops, basis=basis, sorting=sorting)
 
-    return _relaxation_superoperator_in_basis(Sops, incoherent_interactions, basis_ops, symbols,
+    return _relaxation_superoperator_in_basis(Sops, incoherent_interactions, basis, symbols,
                                               norms, indices, keep_non_secular=keep_non_secular)
 
 
@@ -371,7 +368,7 @@ def liouvillian_superoperator(
     # Compute the coherent and incoherent parts against that basis.
     H = _hamiltonian_superoperator_in_basis(Sops, coherent_interactions, basis_ops, symbols,
                                             norms, indices, keep_non_secular=keep_non_secular)
-    R = _relaxation_superoperator_in_basis(Sops, incoherent_interactions, basis_ops, symbols,
+    R = _relaxation_superoperator_in_basis(Sops, incoherent_interactions, basis, symbols,
                                            norms, indices, keep_non_secular=keep_non_secular)
 
     return LiouvillianSuperoperator(H, R)
