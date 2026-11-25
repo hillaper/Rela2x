@@ -163,7 +163,9 @@ def _relaxation_superoperator_in_basis(
     R = sop_R(spin_operators, incoherent_interactions, keep_non_secular=keep_non_secular)
 
     # Create the relaxation superoperator and convert it to the product basis.
-    R = RelaxationSuperoperator(R, basis_symbols, basis_norms, basis_indices)
+    R = RelaxationSuperoperator(R, basis_symbols, basis_norms, basis_indices,
+                                spin_system=spin_operators.spin_system,
+                                incoherent_interactions=incoherent_interactions)
     _to_product_operator_basis(R, basis_ops)
 
     return R

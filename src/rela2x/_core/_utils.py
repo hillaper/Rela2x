@@ -249,3 +249,40 @@ def upper_triangle_enumerate(matrix: list[list[int]]) -> Iterator[tuple[tuple[in
     for i in range(len(matrix)):
         for j in range(i + 1, len(matrix)):
             yield (i, j), matrix[i][j]
+
+
+def interaction_labels(incoherent_interactions: dict) -> dict:
+    """
+    List the interactions of a dictionary of incoherent interactions by label.
+
+    NOTE: The label is the one carried by the spectral density functions: the
+    mechanism name followed by the 1-based indices of the spins, as in
+    ``'CSA1'`` or ``'DD12'``.
+
+    Parameters
+    ----------
+    incoherent_interactions : dict
+        Dictionary of incoherent interactions (see README.md for the required format).
+
+    Returns
+    -------
+    dict
+        Dictionary from label to ``(mechanism, interaction_type, spin_indices)``,
+        with 0-based spin indices.
+    """
+    interactions = {}
+    for mechanism, properties in incoherent_interactions.items():
+        interaction_type, couplings = properties[0], properties[1]
+
+        # Collect the spin indices that the mechanism acts on.
+        if interaction_type[0] == '1':
+            spins = [(i,) for i, strength in enumerate(couplings) if strength != 0]
+        else:
+            spins = [pair for pair, strength in upper_triangle_enumerate(couplings) if strength != 0]
+
+        # Label each interaction as the relaxation superoperator does.
+        for spin_indices in spins:
+            label = mechanism + ''.join(str(i + 1) for i in spin_indices)
+            interactions[label] = (mechanism, interaction_type, spin_indices)
+
+    return interactions

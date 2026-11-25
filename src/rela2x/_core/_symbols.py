@@ -16,6 +16,7 @@ import sympy as smp
 import sympy.physics.quantum as smpq
 
 from rela2x._core._constants import t
+from rela2x._core._utils import sort_interactions
 
 
 # Cartesian spin operators
@@ -275,3 +276,188 @@ def w_Q_symbol(spin_index: int) -> smp.Symbol:
         single-quantum transitions of the spin.
     """
     return smp.Symbol(f'\\omega_{{Q}}^{{({spin_index})}}', real=True)
+
+
+# Parameters of the fluctuating interactions, entering the amplitudes G(0) of the spectral density functions
+def Delta_sigma_symbol(spin_index: int) -> smp.Symbol:
+    """
+    Build the symbolic shielding anisotropy of a spin.
+
+    Parameters
+    ----------
+    spin_index : int
+        Index of the spin, 1-based.
+
+    Returns
+    -------
+    sympy.Symbol
+        Shielding anisotropy ``sigma_parallel - sigma_perpendicular`` of an
+        axially symmetric shielding tensor (dimensionless).
+    """
+    return smp.Symbol(f'\\Delta\\sigma^{{({spin_index})}}', real=True)
+
+
+def sigma_a_symbol(spin_index: int) -> smp.Symbol:
+    """
+    Build the symbolic antisymmetric shielding of a spin.
+
+    Parameters
+    ----------
+    spin_index : int
+        Index of the spin, 1-based.
+
+    Returns
+    -------
+    sympy.Symbol
+        Length of the axial vector of the antisymmetric part of the shielding
+        tensor (dimensionless).
+    """
+    return smp.Symbol(f'\\sigma_{{a}}^{{({spin_index})}}', real=True)
+
+
+def b_coupling_symbol(
+    spin_index_1: int,
+    spin_index_2: int,
+) -> smp.Symbol:
+    """
+    Build the symbolic dipolar coupling constant between two spins.
+
+    NOTE: The rigid-geometry constant that drives dipolar relaxation, as opposed
+    to the motionally averaged residual coupling of `D_coupling_symbol`.
+
+    Parameters
+    ----------
+    spin_index_1 : int
+        Index of the first spin, 1-based.
+    spin_index_2 : int
+        Index of the second spin, 1-based.
+
+    Returns
+    -------
+    sympy.Symbol
+        ``b = mu_0 hbar y_1 y_2 / (4 pi r^3)``, as an angular frequency.
+    """
+    return smp.Symbol(f'b_{{{spin_index_1}{spin_index_2}}}', real=True)
+
+
+def C_Q_symbol(spin_index: int) -> smp.Symbol:
+    """
+    Build the symbolic quadrupolar coupling constant of a spin.
+
+    Parameters
+    ----------
+    spin_index : int
+        Index of the spin, 1-based.
+
+    Returns
+    -------
+    sympy.Symbol
+        ``C_Q = e^2 q Q / h``, as an ordinary frequency (in Hz).
+    """
+    return smp.Symbol(f'C_{{Q}}^{{({spin_index})}}', real=True)
+
+
+def Delta_J_symbol(
+    spin_index_1: int,
+    spin_index_2: int,
+) -> smp.Symbol:
+    """
+    Build the symbolic J-coupling anisotropy between two spins.
+
+    Parameters
+    ----------
+    spin_index_1 : int
+        Index of the first spin, 1-based.
+    spin_index_2 : int
+        Index of the second spin, 1-based.
+
+    Returns
+    -------
+    sympy.Symbol
+        Anisotropy ``J_parallel - J_perpendicular`` of an axially symmetric
+        J-coupling tensor (in Hz).
+    """
+    return smp.Symbol(f'\\Delta J_{{{spin_index_1}{spin_index_2}}}', real=True)
+
+
+def J_a_symbol(
+    spin_index_1: int,
+    spin_index_2: int,
+) -> smp.Symbol:
+    """
+    Build the symbolic antisymmetric J-coupling between two spins.
+
+    Parameters
+    ----------
+    spin_index_1 : int
+        Index of the first spin, 1-based.
+    spin_index_2 : int
+        Index of the second spin, 1-based.
+
+    Returns
+    -------
+    sympy.Symbol
+        Length of the axial vector of the antisymmetric part of the J-coupling
+        tensor (in Hz).
+    """
+    return smp.Symbol(f'J^{{a}}_{{{spin_index_1}{spin_index_2}}}', real=True)
+
+
+def amplitude_symbol(
+    label: str,
+    l: int=2,
+) -> smp.Symbol:
+    """
+    Build the generic symbolic amplitude of an interaction of unrecognised kind.
+
+    Parameters
+    ----------
+    label : str
+        Interaction label, i.e. mechanism name followed by the spin indices.
+    l : int, optional
+        Rank of the interaction. Default is 2.
+
+    Returns
+    -------
+    sympy.Symbol
+        For ``l = 2`` the anisotropy ``Delta`` of an axially symmetric coupling
+        tensor, and for ``l = 1`` the length of the axial vector of an
+        antisymmetric one, both as angular frequencies.
+    """
+    if l == 2:
+        return smp.Symbol(f'\\Delta_{{{label}}}', real=True)
+    return smp.Symbol(f'a_{{{label}}}', real=True)
+
+
+def theta_symbol(
+    label_1: str,
+    label_2: str,
+    l: int=2,
+) -> smp.Symbol:
+    """
+    Build the symbolic angle between the axes of two interactions.
+
+    NOTE: The same symbol results whichever order the two labels are given in.
+
+    Parameters
+    ----------
+    label_1 : str
+        Label of the first interaction, e.g. ``'CSA1'``.
+    label_2 : str
+        Label of the second interaction, e.g. ``'DD12'``.
+    l : int, optional
+        Rank. For ``l = 2`` the angle is that between the symmetry axes of the
+        coupling tensors, and for ``l = 1`` that between the axial vectors of
+        their antisymmetric parts. Default is 2.
+
+    Returns
+    -------
+    sympy.Symbol
+        Angle between the two axes.
+    """
+    # Order the labels as in the names of the spectral density functions.
+    names = sort_interactions(label_1, label_2)
+    if not isinstance(names, str):
+        names = ', '.join(names)
+    rank = '' if l == 2 else f'^{{({l})}}'
+    return smp.Symbol(f'\\theta{rank}_{{{names}}}', real=True)

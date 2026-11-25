@@ -26,14 +26,17 @@ import time
 from rela2x._core import _settings
 from rela2x._core._operators import SpinOperators, op_T_coupled_lq, vector_to_spherical_tensor
 from rela2x._core._spectral_density import (
+    G0_from_amplitudes,
+    G0_from_tensors,
     J_w,
     J_w_isotropic_rotational_diffusion,
     extract_J_w_symbols_and_args,
+    interaction_amplitude,
 )
 from rela2x._core._status import status
-from rela2x._core._symbols import w_symbol
+from rela2x._core._symbols import theta_symbol, w_symbol
 from rela2x._core._superoperators import Superoperator, sop_D, sop_double_commutator
-from rela2x._core._utils import upper_triangle_enumerate
+from rela2x._core._utils import interaction_labels, upper_triangle_enumerate
 
 
 def sop_R_term(
@@ -646,6 +649,11 @@ class RelaxationSuperoperator(Superoperator):
         Liouville norms of the (unnormalized) basis operators.
     basis_indices : list of tuple
         Basis operator indices, used for relaxation rate lookups and filtering.
+    spin_system : list of str, optional
+        Nuclear isotopes of the spin system, used by `substitute_G0`. Default is None.
+    incoherent_interactions : dict, optional
+        Dictionary of incoherent interactions the superoperator was built from,
+        used by `substitute_G0`. Default is None.
     """
     def __init__(
         self,
@@ -653,6 +661,8 @@ class RelaxationSuperoperator(Superoperator):
         basis_symbols: list[smp.Expr],
         basis_norms: list[smp.Expr],
         basis_indices: list[tuple],
+        spin_system: list[str] | None=None,
+        incoherent_interactions: dict | None=None,
     ) -> None:
         """
         Initialise the relaxation superoperator.
@@ -667,8 +677,14 @@ class RelaxationSuperoperator(Superoperator):
             Liouville norms of the (unnormalized) basis operators.
         basis_indices : list of tuple
             Basis operator indices, used for relaxation rate lookups and filtering.
+        spin_system : list of str, optional
+            Nuclear isotopes of the spin system. Default is None.
+        incoherent_interactions : dict, optional
+            Dictionary of incoherent interactions. Default is None.
         """
         Superoperator.__init__(self, sop_R, basis_symbols, basis_norms, basis_indices)
+        self.spin_system = spin_system
+        self.incoherent_interactions = incoherent_interactions
 
     @property
     def generator(self) -> smp.MatrixBase:
@@ -729,7 +745,7 @@ class RelaxationSuperoperator(Superoperator):
         slow_motion_limit : bool, optional
             Whether to use the slow-motion limit. Default is False.
         """
-        J_w_functions = [function for function in self.functions_in if 'J' in str(function)]
+        J_w_functions = [function for function in self.functions_in if str(function.func).startswith('J^')]
         subst_dict = {}
 
         # Build the substitution for every anisotropic (l > 0) spectral density function.
@@ -740,6 +756,87 @@ class RelaxationSuperoperator(Superoperator):
                 subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg,
                                     fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
         self.substitute(subst_dict)
+
+    def substitute_G0(
+        self,
+        tensors: dict | None=None,
+    ) -> None:
+        """
+        Substitute every G(0) in the relaxation superoperator with its expression
+        in terms of the interaction parameters.
+
+        NOTE: To be applied after `to_isotropic_rotational_diffusion`, which is
+        what introduces the G(0) functions. Holds for a rigid molecule in an
+        isotropic liquid.
+
+        NOTE: By default every interaction is taken to be axially symmetric, and
+        what it is follows from the mechanism name (see `interaction_amplitude`).
+        A cross-correlation then depends on the angle between the two symmetry
+        axes (see `theta_symbol`). The angles of different pairs are independent
+        symbols, although the molecular geometry links them.
+
+        NOTE: Interactions given in `tensors` use their full coupling tensor
+        instead, with any asymmetry and orientation (see `G0_from_tensors`).
+        Both interactions of a cross-correlation then have to be given, in the
+        same molecular frame. `axial_tensor` builds the tensor of an axially
+        symmetric one.
+
+        Parameters
+        ----------
+        tensors : dict, optional
+            Dictionary from interaction label (mechanism name followed by the
+            1-based spin indices, e.g. ``'CSA1'`` or ``'DD12'``) to the 3x3
+            Cartesian coupling tensor, in angular frequency units. Default is None.
+
+        Raises
+        ------
+        ValueError
+            If `tensors` contains an unknown label, or only one of the two
+            interactions of a cross-correlation.
+        """
+        tensors = {} if tensors is None else tensors
+        interactions = interaction_labels(self.incoherent_interactions)
+
+        # A misspelt label would silently fall back to the default expression.
+        unknown = set(tensors) - set(interactions)
+        if unknown:
+            raise ValueError(f'Unknown interaction labels {sorted(unknown)}. Choose from {list(interactions)}.')
+
+        substitutions = {}
+        taken_as = {}
+        for G in [function for function in self.functions_in if str(function.func).startswith('G^')]:
+
+            # Read the interaction labels and the rank from the name of the function.
+            intrs, lq, _ = extract_J_w_symbols_and_args(G)
+            names = intrs[0].split(', ')
+            label_1, label_2, l = names[0], names[-1], lq[0]
+
+            # Use the full coupling tensors if they are given.
+            if label_1 in tensors and label_2 in tensors:
+                substitutions[G] = G0_from_tensors(tensors[label_1], tensors[label_2], l)
+                taken_as[label_1] = taken_as[label_2] = 'coupling tensor given'
+
+            elif label_1 in tensors or label_2 in tensors:
+                raise ValueError(f'The cross-correlation of {label_1} and {label_2} needs both coupling tensors.')
+
+            # Otherwise build the axially symmetric expression from the mechanism names.
+            else:
+                amplitudes = []
+                for label in (label_1, label_2):
+                    mechanism, interaction_type, spin_indices = interactions[label]
+                    amplitude, taken_as[label] = interaction_amplitude(
+                        mechanism, interaction_type, spin_indices, self.spin_system, l)
+                    amplitudes.append(amplitude)
+                theta = 0 if label_1 == label_2 else theta_symbol(label_1, label_2, l)
+                substitutions[G] = G0_from_amplitudes(*amplitudes, theta=theta, l=l)
+
+        # Report what each interaction was taken to be.
+        status('Substituting G(0)...')
+        for label in sorted(taken_as):
+            status(f'  {label}: {taken_as[label]}')
+        status('')
+
+        self.substitute(substitutions)
 
     def neglect_cross_correlated_terms(
         self,
@@ -753,6 +850,9 @@ class RelaxationSuperoperator(Superoperator):
         NOTE: If `mechanism1` and `mechanism2` are both None, all
         cross-correlated terms are neglected.
 
+        NOTE: Acts on the J(w) and G(0) functions, and therefore has to be
+        applied before `substitute_G0`.
+
         Parameters
         ----------
         mechanism1 : str, optional
@@ -760,7 +860,7 @@ class RelaxationSuperoperator(Superoperator):
         mechanism2 : str, optional
             Name of the second mechanism. If None, `mechanism1` is used. Default is None.
         """
-        J_w_functions = [function for function in self.functions_in if 'J' in str(function) or 'G' in str(function)]
+        J_w_functions = [function for function in self.functions_in if str(function.func).startswith(('J^', 'G^'))]
 
         # Neglect all cross-correlated terms if mechanism1 and mechanism2 are both None.
         if mechanism1 is None and mechanism2 is None:

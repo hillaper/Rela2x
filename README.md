@@ -33,6 +33,8 @@ This documentation contains the most up-to-date information regarding the code i
 **Erratum:**
 The irreducible spherical tensor components printed at the end of the publication have errors. However, the implementation in Rela²x is and has always been correct.
 
+Eq. (70) of the publication, for the amplitude $G(0)$ of an interaction pair, is not generally valid. It takes each coupling tensor in its own principal axis system and multiplies their contraction by $P_2(\cos\theta)$. The correct expression contracts both tensors in a common molecular frame, $G(0) = (\mathbf{A}_1 : \mathbf{A}_2)/(2l+1)$. The two agree for auto-correlations and for cross-correlations of two axially symmetric rank-2 interactions, but not for cross-correlations in which either rank-2 tensor is non-axial, or for rank-1 cross-correlations, whose angular factor is $\cos\theta$. Code up to version 0.0.4 is not affected, because it leaves $G(0)$ abstract.
+
 **API reference:**
 The [API reference](#api-reference) below lists everything that `from rela2x import *` exposes. For the full detail of any individual function or class, refer to its docstring in the source modules under `src/rela2x/_core/`. (A thorough dedicated documentation page is planned for the future.)
 
@@ -62,6 +64,9 @@ Residual dipolar and quadrupolar couplings, added as the coherent mechanisms `'R
 The residual dipolar coupling shares the secular treatment of the J-coupling, on the same Larmor frequency symbols, and its constants $D_{ij}$ are defined as the splittings they produce for a heteronuclear pair — so such a pair carrying both couplings splits by $J_{ij} + D_{ij}$. The residual quadrupolar coupling constants $\omega_Q^{(i)}$ are angular frequencies, defined as the spacing between adjacent single-quantum transitions of the spin.
 
 See [The high-field approximation](#the-high-field-approximation) for the assumption these rest on: **the secular approximation is still made against the Zeeman Hamiltonian alone**, so the residual couplings are assumed small compared with the Larmor frequency differences it tests.
+
+**Rela²x 0.0.5:**  
+Explicit expressions for the amplitudes $G(0)$ of the isotropic rotational diffusion model, substituted with `substitute_G0`, so that relaxation rates are obtained directly in terms of shielding anisotropies, dipolar and quadrupolar coupling constants and the angles between the interaction axes. See [The amplitudes G(0)](#the-amplitudes-g0). The mechanism names of the incoherent interactions are no longer only cosmetic, because `substitute_G0` reads from them what each interaction is.
 
 ## Installation from PyPI
 The most recent release published on the Python Package Index (PyPI) can be installed with:
@@ -273,7 +278,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    
    `'mechanism_name': ('type', intr_array, rank_list)`
    
-   - `mechanism_name` appears in the spectral-density function symbols and is mostly a cosmetic label that does not affect the actual calculation. However, these names are utilized if cross-correlated couplings are neglected (see below).
+   - `mechanism_name` appears in the spectral-density function symbols and does not affect the calculation of *R*. It is used when cross-correlated couplings are neglected, and by `substitute_G0`, which reads from it what the interaction is (see [The amplitudes G(0)](#the-amplitudes-g0)).
    
    - For single-spin linear or single-spin quadratic interactions, `type` is either `'1L'` or `'1Q'`, respectively. For two-spin bilinear interactions, `type` is always `'2'`. Bilinearity of two-spin interactions does not need to be specified.
    
@@ -294,7 +299,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    }
    ```
 
-   Note the difference from `coh_intrs` above: there, the key *is* the mechanism, and only `'Z'` and `'J'` are accepted; here, the key is a free cosmetic label and the type lives in the value.
+   Note the difference from `coh_intrs` above: there, the key *is* the mechanism, and only `'Z'` and `'J'` are accepted; here, the key is a free label and the type lives in the value.
 
 **Compute the matrix representation of *R*, convert it to the product operator basis, and create a `RelaxationSuperoperator` object:**
 
@@ -314,7 +319,9 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    - `to_isotropic_rotational_diffusion(fast_motion_limit=False, slow_motion_limit=False)` applies the isotropic rotational diffusion model with the fast-motion or slow-motion limit approximation if desired.
 
-   - `neglect_cross_correlated_terms(mechanism1=None, mechanism2=None)` neglects cross-correlated contributions in *R* between two mechanisms. The arguments `mechanism1` and `mechanism2` must correspond to the names chosen for `mechanism_name`s in `incoh_intrs`. If `mechanism2` is not provided, `mechanism1` is used, and if neither is provided, all cross-correlated contributions are neglected.
+   - `substitute_G0(tensors=None)` substitutes the amplitudes $G(0)$ that the model above introduces with their expressions in terms of the interaction parameters (see [The amplitudes G(0)](#the-amplitudes-g0)).
+
+   - `neglect_cross_correlated_terms(mechanism1=None, mechanism2=None)` neglects cross-correlated contributions in *R* between two mechanisms. The arguments `mechanism1` and `mechanism2` must correspond to the names chosen for `mechanism_name`s in `incoh_intrs`. If `mechanism2` is not provided, `mechanism1` is used, and if neither is provided, all cross-correlated contributions are neglected. Apply it before `substitute_G0`.
 
    - `neglect_cross_relaxation()` neglects all cross-relaxation in *R*, setting every off-diagonal element to zero and leaving only the auto-relaxation rates on the diagonal. Note the distinction from the previous method: cross-*correlation* is between two interaction mechanisms, whereas cross-*relaxation* is between two basis operators.
 
@@ -335,7 +342,7 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
    display(L.element('110'))
    ```
 
-   The relaxation-only approximations (`to_isotropic_rotational_diffusion`, `neglect_cross_correlated_terms`, `neglect_cross_relaxation`) are available directly on the `LiouvillianSuperoperator` and act on its relaxation part, leaving the coherent terms untouched; `to_basis`, `to_observables`, `substitute` and `filter` act on both parts. In every case the combination is rebuilt from the parts, so `L.op` and `L.H`/`L.R` can never disagree.
+   The relaxation-only operations (`to_isotropic_rotational_diffusion`, `substitute_G0`, `neglect_cross_correlated_terms`, `neglect_cross_relaxation`) are available directly on the `LiouvillianSuperoperator` and act on its relaxation part, leaving the coherent terms untouched; `to_basis`, `to_observables`, `substitute` and `filter` act on both parts. In every case the combination is rebuilt from the parts, so `L.op` and `L.H`/`L.R` can never disagree.
 
    Combining the parts after the normalization to observables is exact, because that rescaling is a diagonal similarity transform and therefore distributes over the sum.
 
@@ -357,6 +364,44 @@ The usage of Rela²x is summarized below. Specifics, such as variable names, can
 
    `savename` is an arbitrary string.
 
+## The amplitudes G(0)
+
+The isotropic rotational diffusion model writes each spectral density as $J(\omega) = 2G(0)\,\tau_l/(1+\omega^2\tau_l^2)$ and leaves the amplitude $G(0)$ of the interaction pair as an abstract function. `substitute_G0` replaces it with an expression in terms of the interaction parameters:
+
+   ```python
+   R = relaxation_superoperator(spin_system, incoh_intrs)
+   R.to_isotropic_rotational_diffusion()
+   R.substitute_G0()
+   display(R.rate('110'))
+   ```
+
+For a rigid molecule in an isotropic liquid the amplitude of two interactions with Cartesian coupling tensors $\mathbf{A}_1$ and $\mathbf{A}_2$ is
+
+$$G(0) = \frac{\mathbf{A}_1 : \mathbf{A}_2}{2l+1},$$
+
+where $:$ sums the products of the corresponding elements of the rank-$l$ parts of the tensors, both written in the same molecular frame. The tensors are in angular frequency units and enter the Hamiltonian as $\mathbf{I}\cdot\mathbf{A}\cdot\mathbf{S}$ (two spins), $\mathbf{I}\cdot\mathbf{A}\cdot\mathbf{n}$ (spin and magnetic field, $\mathbf{n}$ the unit vector along the field) or $\mathbf{S}\cdot\mathbf{A}\cdot\mathbf{S}$ (quadrupolar).
+
+**By default every interaction is axially symmetric.** Then $G(0) = \frac{2}{15}\Delta_1\Delta_2 P_2(\cos\theta)$ for rank 2, with $\Delta = A_\parallel - A_\perp$ and $\theta$ the angle between the symmetry axes, and $G(0) = \frac{2}{3}a_1 a_2\cos\theta$ for rank 1, with $a$ the length of the axial vector of the antisymmetric part and $\theta$ the angle between the axial vectors. What $\Delta$ and $a$ are follows from the mechanism name:
+
+| mechanism name | type | $\Delta$ (rank 2) | $a$ (rank 1) | parameters |
+| --- | --- | --- | --- | --- |
+| `'CSA'` or `'SH'` | `'1L'` | $-\omega\,\Delta\sigma$ | $-\omega\,\sigma_a$ | $\Delta\sigma = \sigma_\parallel - \sigma_\perp$, $\omega$ the Larmor frequency |
+| `'DD'` | `'2'` | $-3b$ | 0 | $b = \mu_0\hbar\gamma_1\gamma_2/(4\pi r^3)$ |
+| `'Q'` | `'1Q'` | $3\pi C_Q/(2S(2S-1))$ | 0 | $C_Q = e^2qQ/h$ in Hz, $S$ the spin quantum number |
+| `'J'` | `'2'` | $2\pi\,\Delta J$ | $2\pi J_a$ | $\Delta J = J_\parallel - J_\perp$ and $J_a$ in Hz |
+
+A mechanism with any other name, or with a name that does not match its type, gets a generic amplitude $\Delta$ or $a$. The method prints what each interaction was taken to be (unless `set_verbose(False)`). The symbols are built by `Delta_sigma_symbol`, `b_coupling_symbol`, `theta_symbol` and their relatives, which are also what you pass to `substitute` to insert numbers. The angles of different interaction pairs are independent symbols, although the geometry of a molecule links them.
+
+**Asymmetric tensors.** Give the full coupling tensor of an interaction to override the default, using its label (mechanism name followed by the spin indices):
+
+   ```python
+   R.substitute_G0({'CSA1': A_CSA, 'DD12': A_DD})
+   ```
+
+Both interactions of a cross-correlation then have to be given, in the same frame. `axial_tensor(delta, axis)` builds the tensor of an axially symmetric one.
+
+Spectral densities of rank 0 are not rotationally modulated and are left as they are, and spin-rotation relaxation is not covered.
+
 ## The high-field approximation
 
 The derivation of *R* (see the publication) rests on the high-field approximation, so that the Zeeman Hamiltonian is assumed as the dominant coherent interaction.
@@ -365,7 +410,7 @@ The derivation of *R* (see the publication) rests on the high-field approximatio
 
 ## API reference
 
-For reference: the Usage walkthrough above tells the whole story of building *H*, *R* and *L*, and covers the handful of names needed for ordinary work. Everything below is the rest of the public namespace — building blocks Rela²x uses internally and exposes because they are useful on their own. `from rela2x import *` brings 73 names into your namespace in total; only names related to spin physics or to the package's main functionality are exposed this way. The internal plumbing behind them (string/index parsing, basis-sorting machinery, the individual relaxation/Hamiltonian term-builders, and similar helpers) remains fully usable, just not part of the flat namespace — reach it via its submodule under `rela2x._core` if you need it. Grouped below by layer, roughly from the top down; full documentation for every one of them lives in the docstrings, under `src/rela2x/_core/`.
+For reference: the Usage walkthrough above tells the whole story of building *H*, *R* and *L*, and covers the handful of names needed for ordinary work. Everything below is the rest of the public namespace — building blocks Rela²x uses internally and exposes because they are useful on their own. `from rela2x import *` brings 84 names into your namespace in total; only names related to spin physics or to the package's main functionality are exposed this way. The internal plumbing behind them (string/index parsing, basis-sorting machinery, the individual relaxation/Hamiltonian term-builders, and similar helpers) remains fully usable, just not part of the flat namespace — reach it via its submodule under `rela2x._core` if you need it. Grouped below by layer, roughly from the top down; full documentation for every one of them lives in the docstrings, under `src/rela2x/_core/`.
 
 ### Entry points
 
@@ -432,6 +477,12 @@ Basis operator indices, the tuples returned above and described under [Usage](#u
 | `J_coupling_symbol(spin_index_1, spin_index_2)` | J-coupling constant, in Hz |
 | `D_coupling_symbol(spin_index_1, spin_index_2)` | Residual dipolar coupling constant, in Hz |
 | `w_Q_symbol(spin_index)` | Residual quadrupolar coupling constant $\omega_Q$, as an angular frequency |
+| `Delta_sigma_symbol(spin_index)`, `sigma_a_symbol(spin_index)` | Shielding anisotropy and antisymmetric shielding |
+| `b_coupling_symbol(spin_index_1, spin_index_2)` | Dipolar coupling constant, as an angular frequency |
+| `C_Q_symbol(spin_index)` | Quadrupolar coupling constant, in Hz |
+| `Delta_J_symbol(spin_index_1, spin_index_2)`, `J_a_symbol(spin_index_1, spin_index_2)` | J-coupling anisotropy and antisymmetric J-coupling, in Hz |
+| `amplitude_symbol(label, l=2)` | Generic amplitude of an unrecognised mechanism |
+| `theta_symbol(label_1, label_2, l=2)` | Angle between the axes of two interactions |
 | `op_S_symbol(direction, index)`, `op_T_symbol(l, q, index)` | Printed operator symbols |
 | `product_op_S_symbol(...)`, `product_op_T_symbol(...)` | Products thereof |
 | `expectation_value(op_symbol)`, `f_expectation_value_t(op_symbol)` | Observable and time-dependent observable symbols |
@@ -442,6 +493,9 @@ Basis operator indices, the tuples returned above and described under [Usage](#u
 | --- | --- |
 | `J_w(intr1, intr2, l, argument)` | The abstract spectral density function *J*(ω) of an interaction pair |
 | `J_w_isotropic_rotational_diffusion(...)` | Its isotropic rotational diffusion form |
+| `G0_from_tensors(A_1, A_2, l=2)` | The amplitude $G(0)$ from two coupling tensors |
+| `G0_from_amplitudes(amplitude_1, amplitude_2, theta=0, l=2)` | The same for axially symmetric interactions |
+| `axial_tensor(delta, axis)` | An axially symmetric rank-2 coupling tensor |
 | `Lorentzian(w, tau_c, ...)` | A Lorentzian, with optional motional limits |
 | `Schofield_theta(w)` | Thermal correction factor of the quantum mechanical theory |
 
@@ -490,7 +544,7 @@ The engines behind the entry points, for when you want the raw matrix rather tha
 
 ## Examples
 
-Eight example notebooks that showcase the usage of Rela²x are included in the repository. `rela2x_example5_coherent_interactions.ipynb` and `rela2x_example6_liouvillian.ipynb` cover the coherent interactions and the Liouvillian introduced in 0.0.3: the Hamiltonian superoperator on its own, and combined with the relaxation superoperator into the full dynamics. `rela2x_example7_residual_couplings.ipynb` covers the residual dipolar and quadrupolar couplings introduced in 0.0.4, alongside the relaxation they are the coherent counterparts of.
+Nine example notebooks that showcase the usage of Rela²x are included in the repository. `rela2x_example5_coherent_interactions.ipynb` and `rela2x_example6_liouvillian.ipynb` cover the coherent interactions and the Liouvillian introduced in 0.0.3: the Hamiltonian superoperator on its own, and combined with the relaxation superoperator into the full dynamics. `rela2x_example7_residual_couplings.ipynb` covers the residual dipolar and quadrupolar couplings introduced in 0.0.4, alongside the relaxation they are the coherent counterparts of. `rela2x_example8_relaxation_rates.ipynb` derives relaxation rates in terms of the interaction parameters with `substitute_G0`, introduced in 0.0.5.
 
 ## Warnings
 

@@ -200,6 +200,24 @@ class LiouvillianSuperoperator(Superoperator):
                                                  slow_motion_limit=slow_motion_limit)
         self._recombine()
 
+    def substitute_G0(
+        self,
+        tensors: dict | None=None,
+    ) -> None:
+        """
+        Substitute every G(0) in the relaxation part with its expression in
+        terms of the interaction parameters.
+
+        See `RelaxationSuperoperator.substitute_G0` for more information.
+
+        Parameters
+        ----------
+        tensors : dict, optional
+            Dictionary from interaction label to coupling tensor. Default is None.
+        """
+        self.R.substitute_G0(tensors)
+        self._recombine()
+
     def neglect_cross_correlated_terms(
         self,
         mechanism1: str | None=None,
