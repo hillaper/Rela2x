@@ -13,7 +13,6 @@ and the machinery for assembling many-spin product operators. The
 from __future__ import annotations
 
 from sympy.physics.quantum.cg import CG
-import numpy as np
 import sympy as smp
 import sympy.physics.quantum as smpq
 
@@ -37,8 +36,11 @@ def op_Sx(S: float) -> smp.Matrix:
     sympy.Matrix
         Spin angular momentum operator ``Sx`` for spin quantum number `S`.
     """
-    m = np.arange(-S, S+1)
-    Sx = smp.zeros(len(m), len(m), complex=True)
+    # Exact spin quantum number and projections, so that no floating-point numbers enter the elements
+    S = smp.Rational(int(2*S), 2)
+    m = [k - S for k in range(int(2*S) + 1)]
+
+    Sx = smp.zeros(len(m), len(m))
 
     for i in range(len(m)):
         for j in range(len(m)):
@@ -47,7 +49,7 @@ def op_Sx(S: float) -> smp.Matrix:
             elif i == j-1:
                 Sx[i, j] = smp.Rational(1, 2) * smp.sqrt(S*(S+1) - m[i]*m[j])
 
-    return smp.Matrix(Sx.T, complex=True).applyfunc(smp.nsimplify)
+    return Sx.T
 
 
 def op_Sy(S: float) -> smp.Matrix:
@@ -64,8 +66,11 @@ def op_Sy(S: float) -> smp.Matrix:
     sympy.Matrix
         Spin angular momentum operator ``Sy`` for spin quantum number `S`.
     """
-    m = np.arange(-S, S+1)
-    Sy = smp.zeros(len(m), len(m), complex=True)
+    # Exact spin quantum number and projections, so that no floating-point numbers enter the elements
+    S = smp.Rational(int(2*S), 2)
+    m = [k - S for k in range(int(2*S) + 1)]
+
+    Sy = smp.zeros(len(m), len(m))
 
     for i in range(len(m)):
         for j in range(len(m)):
@@ -74,7 +79,7 @@ def op_Sy(S: float) -> smp.Matrix:
             elif i == j-1:
                 Sy[i, j] = smp.I * smp.Rational(1, 2) * smp.sqrt(S*(S+1) - m[i]*m[j])
 
-    return smp.Matrix(Sy.T, complex=True).applyfunc(smp.nsimplify)
+    return Sy.T
 
 
 def op_Sz(S: float) -> smp.Matrix:
@@ -91,14 +96,11 @@ def op_Sz(S: float) -> smp.Matrix:
     sympy.Matrix
         Spin angular momentum operator ``Sz`` for spin quantum number `S`.
     """
-    m = np.arange(-S, S+1)
-    m = np.flip(m)
+    # Exact projections in descending order
+    S = smp.Rational(int(2*S), 2)
+    m = [S - k for k in range(int(2*S) + 1)]
 
-    Sz = smp.zeros(len(m), len(m), complex=True)
-    for i in range(len(m)):
-        Sz[i, i] = m[i]
-
-    return smp.Matrix(Sz.T, complex=True).applyfunc(smp.nsimplify)
+    return smp.diag(*m)
 
 
 def op_Sp(S: float) -> smp.Matrix:
@@ -183,7 +185,7 @@ def op_T(
     """
     Build the spherical tensor operator of spin quantum number S, rank l and
     projection q, obtained by sequential lowering of the maximum-projection
-    operator (see the nested `op_T_ll`).
+    operator ``T_ll = (-1)^l 2^(-l/2) S_+^l``.
 
     NOTE: The returned operators are not normalized.
 
@@ -202,41 +204,18 @@ def op_T(
         Spherical tensor operator ``T_lq`` for spin quantum number `S`, or 0
         if `l` or `q` are outside their allowed ranges.
     """
-    def op_T_ll(
-        S: float,
-        l: int,
-    ) -> smp.MatrixBase | int:
-        """
-        Build the spherical tensor operator of spin quantum number S, rank l
-        and maximum projection q = l.
-
-        Parameters
-        ----------
-        S : float
-            Spin quantum number.
-        l : int
-            Rank of the spherical tensor operator.
-
-        Returns
-        -------
-        sympy.Matrix or int
-            Spherical tensor operator ``T_ll``, or 0 if `l` exceeds ``2*S``.
-        """
-        if l > int(2*S):
-            return 0
-        else:
-            return ((-1.)**l * 2.**(-l/2) * (op_Sp(S))**l).applyfunc(lambda x: smp.nsimplify(x))
-    if abs(q) > l:
+    if abs(q) > l or l > int(2*S):
         return 0
-    else:
-        T_ll = op_T_ll(S, l)
-        S_m = op_Sm(S)
-        for i in range(l - q):
-            comm = commutator(S_m, T_ll)
-            N = smp.sqrt((l - q)*(l + q + 1))
-            T_ll = (1 / N) * comm
-            q += 1
-        return T_ll.applyfunc(smp.simplify)
+
+    # Maximum-projection operator, in exact arithmetic
+    T = (-1)**l * smp.sqrt(2)**(-l) * op_Sp(S)**l
+
+    # Lower the projection one step at a time
+    S_m = op_Sm(S)
+    for k in range(l, q, -1):
+        T = commutator(S_m, T) / smp.sqrt((l - k + 1)*(l + k))
+
+    return T.applyfunc(smp.radsimp)
 
 
 # Coupling of spherical tensor operators.

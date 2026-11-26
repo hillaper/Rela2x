@@ -661,22 +661,57 @@ def _clebsch_gordan(
 
 
 @lru_cache(maxsize=4096)
-def _simplify_cached(expression: smp.Expr) -> smp.Expr:
+def _combine_exponentials(expression: smp.Expr) -> smp.Expr:
     """
-    `sympy.simplify` with the results stored, for expressions that recur in many
-    matrix elements.
+    Combine a sum of exponential functions into hyperbolic functions.
+
+    The terms of exponents x and -x are paired, a*exp(x) + b*exp(-x), which
+    gives 2a*sinh(x) for b = -a and 2a*cosh(x) for b = a. This is the form
+    `sympy.simplify` gives for the quantum correction factors of the Lindbladian
+    theory, obtained here much faster.
 
     Parameters
     ----------
     expression : sympy.Expr
-        Expression to simplify.
+        Sum of terms, each a constant or a constant times one exponential function.
 
     Returns
     -------
     sympy.Expr
-        Simplified expression.
+        Expression of equal value.
     """
-    return smp.simplify(expression)
+    # Coefficient of every distinct exponent
+    coefficients = defaultdict(lambda: smp.S.Zero)
+    for term in smp.Add.make_args(expression):
+        coefficient, exponential = term.as_independent(smp.exp, as_Add=False)
+        if isinstance(exponential, smp.exp):
+            coefficients[smp.expand(exponential.args[0])] += coefficient
+        else:
+            coefficients[smp.S.Zero] += term
+
+    combined = []
+    while coefficients:
+        x, a = coefficients.popitem()
+
+        # Constant term
+        if x == 0:
+            combined.append(a)
+            continue
+
+        # Pair with the term of the opposite exponent, taking x to be the one without a leading minus sign
+        b = coefficients.pop(-x, smp.S.Zero)
+        if x.could_extract_minus_sign():
+            x, a, b = -x, b, a
+        argument = smp.factor_terms(x)
+
+        if smp.expand(a + b) == 0:
+            combined.append(2*a*smp.sinh(argument))
+        elif smp.expand(a - b) == 0:
+            combined.append(2*a*smp.cosh(argument))
+        else:
+            combined.append(a*smp.exp(argument) + b*smp.exp(-argument))
+
+    return smp.Add(*combined)
 
 
 def _interaction_components(
@@ -862,13 +897,12 @@ def sop_R_in_basis(
 
         elif _settings.RELAXATION_THEORY == 'qm':
             # NOTE: Each J carries the quantum correction factor of its argument. The factors multiplying the same
-            # spectral density function are collected and simplified together, which is much cheaper than
-            # simplifying whole matrix elements.
+            # spectral density function are collected and combined into hyperbolic functions.
             factors = defaultdict(lambda: smp.S.Zero)
             for J, c in densities.items():
                 function, = J.atoms(AppliedUndef)
                 factors[function] += smp.expand(c) * (J / function)
-            R[row, column] = smp.Add(*[smp.expand(function * _simplify_cached(factor))
+            R[row, column] = smp.Add(*[smp.expand(function * _combine_exponentials(factor))
                                        for function, factor in factors.items()])
 
     status(f'R computed in {time.time() - time_start:.2f} seconds.\n')
@@ -1003,7 +1037,7 @@ class RelaxationSuperoperator(Superoperator):
             if lq[0] > 0:
                 subst_dict[J_w] = J_w_isotropic_rotational_diffusion(*intrs, lq[0], arg,
                                     fast_motion_limit=fast_motion_limit, slow_motion_limit=slow_motion_limit)
-        self.substitute(subst_dict)
+        self._replace(subst_dict)
 
     def substitute_G0(
         self,
@@ -1084,7 +1118,7 @@ class RelaxationSuperoperator(Superoperator):
             status(f'  {label}: {taken_as[label]}')
         status('')
 
-        self.substitute(substitutions)
+        self._replace(substitutions)
 
     def neglect_cross_correlated_terms(
         self,
@@ -1110,13 +1144,15 @@ class RelaxationSuperoperator(Superoperator):
         """
         J_w_functions = [function for function in self.functions_in if str(function.func).startswith(('J^', 'G^'))]
 
+        neglected = {}
+
         # Neglect all cross-correlated terms if mechanism1 and mechanism2 are both None.
         if mechanism1 is None and mechanism2 is None:
             for J_w in J_w_functions:
                 # See extract_J_w_symbols_and_args.
                 intrs, _, _ = extract_J_w_symbols_and_args(J_w)
                 if ',' in intrs[0]:
-                    self.substitute({J_w: 0})
+                    neglected[J_w] = smp.S.Zero
 
         # Otherwise, neglect cross-correlated terms between mechanism1 and mechanism2 only.
         else:
@@ -1128,10 +1164,12 @@ class RelaxationSuperoperator(Superoperator):
                 if ',' in intrs[0]:
                     if mechanism1 == mechanism2:
                         if str(J_w).count(mechanism1) > 1:
-                            self.substitute({J_w: 0})
+                            neglected[J_w] = smp.S.Zero
                     else:
                         if mechanism1 in str(J_w) and mechanism2 in str(J_w):
-                            self.substitute({J_w: 0})
+                            neglected[J_w] = smp.S.Zero
+
+        self._replace(neglected)
 
     def neglect_cross_relaxation(self) -> None:
         """

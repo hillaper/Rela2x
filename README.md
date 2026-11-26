@@ -70,6 +70,8 @@ Explicit expressions for the amplitudes $G(0)$ of the isotropic rotational diffu
 
 *R* and *H* are now built directly in the product operator basis from single-spin matrix elements, which is much faster, for *R* of three spins by well over an order of magnitude. The results are unchanged, except that in the quantum mechanical theory some matrix elements are written in a different but equal form (for example with `sinh` instead of a pair of exponentials). `sop_R`, `sop_H`, `to_basis` and `to_observables` are unchanged and available as before.
 
+Also much faster are the spin operators, the quantum mechanical theory, and the steps `to_isotropic_rotational_diffusion`, `substitute_G0` and `neglect_cross_correlated_terms`, without any change of the results.
+
 Fixed: with `keep_non_secular=True`, the non-secular terms of a pair of two-spin interactions took the frequency of the spectral density from the first interaction instead of the second, as in Eq. (60) of the publication. This affected cross-correlations between different two-spin interactions, and also a single two-spin interaction involving a spin larger than 1/2 (also in version 0.0.4). Secular results were not affected.
 
 ## Installation from PyPI

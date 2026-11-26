@@ -271,6 +271,27 @@ class Operator:
         self.symbols_in = self.get_symbols()
         self.functions_in = self.get_functions()
 
+    def _replace(
+        self,
+        replacements: dict,
+    ) -> None:
+        """
+        Replace symbols and functions in `self.op` by other expressions.
+
+        NOTE: Exact replacement of whole subexpressions, much faster than the
+        algebraic matching of `substitute`. All replacements are made at once.
+
+        Parameters
+        ----------
+        replacements : dict
+            Replacements of the form ``{symbol or function: SymPy expression}``.
+        """
+        self.op = self.op.xreplace(replacements)
+
+        # Update symbols_in and functions_in to reflect the replacement.
+        self.symbols_in = self.get_symbols()
+        self.functions_in = self.get_functions()
+
     # Visualization
     def visualize(
         self,
